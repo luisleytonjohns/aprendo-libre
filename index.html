@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<!--
+  AprendoLibre
+  Creado por Luis Ernest Leyton Johns. Todos los derechos reservados.
+  LinkedIn: https://linkedin.com/in/luis-leyton-johns
+  ORCID: https://orcid.org/0000-0002-4462-403X
+-->
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AprendoLibre</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1668c9">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="AprendoLibre">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --azul:#1668c9; --sol:#f2a33c; --verde:#2f9e6b; --tinta:#223243;
+    --cielo:#e8f1fc; --papel:#fbfcfe; --linea:#dfe7f1; --gris:#6b7a8d;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Nunito,system-ui,sans-serif;color:var(--tinta);
+       background:var(--papel);-webkit-font-smoothing:antialiased}
+  a{color:var(--azul)}
+  .marca{display:flex;align-items:center;gap:10px;font-weight:800;font-size:22px}
+  .marca .az{color:var(--azul)}
+  .ico{width:34px;height:34px;flex:0 0 auto}
+
+  #login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+  .card{width:100%;max-width:420px;background:#fff;border:1px solid var(--linea);
+        border-radius:20px;padding:32px 28px;box-shadow:0 12px 40px rgba(22,104,201,.08);text-align:center}
+  .card .marca{justify-content:center;font-size:26px;margin-bottom:6px}
+  .card .ico{width:44px;height:44px}
+  .lema{color:var(--gris);font-weight:600;margin:6px 0 22px}
+  .formlogin{text-align:left;margin-bottom:6px}
+  .formlogin label{display:block;font-weight:700;font-size:14px;margin:12px 0 6px}
+  .btn.ancho{width:100%;margin-top:16px}
+  .aviso{margin-top:16px;font-weight:600;font-size:14px;border-radius:12px;padding:12px 14px;display:none}
+  .aviso.err{background:#fdecec;color:#b3261e;display:block}
+  .aviso.info{background:var(--cielo);color:var(--azul);display:block}
+
+  #app{display:none}
+  .barra{display:flex;align-items:center;justify-content:space-between;gap:12px;
+         padding:14px 20px;background:#fff;border-bottom:1px solid var(--linea);position:sticky;top:0;z-index:5}
+  .usuario{display:flex;align-items:center;gap:12px;font-weight:600;color:var(--gris)}
+  .rolchip{background:var(--cielo);color:var(--azul);font-weight:700;font-size:12px;padding:4px 10px;border-radius:999px}
+  .salir{background:none;border:1px solid var(--linea);border-radius:10px;padding:8px 14px;font-family:inherit;font-weight:700;color:var(--tinta);cursor:pointer}
+  .salir:hover{background:var(--cielo)}
+  main{max-width:920px;margin:0 auto;padding:24px 20px 60px}
+  h1{font-size:24px;margin:6px 0 4px}
+  .sub{color:var(--gris);font-weight:600;margin:0 0 22px}
+  .panel{background:#fff;border:1px solid var(--linea);border-radius:16px;padding:22px;margin-bottom:20px}
+  .panel h2{font-size:17px;margin:0 0 14px}
+  label{display:block;font-weight:700;font-size:14px;margin:0 0 6px}
+  input,select{width:100%;font-family:inherit;font-size:15px;padding:11px 12px;border:1px solid var(--linea);border-radius:10px;background:#fff;color:var(--tinta)}
+  input:focus,select:focus{outline:2px solid var(--azul);outline-offset:1px;border-color:var(--azul)}
+  .fila{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+  .fila>div{flex:1 1 200px}
+  .btn{background:var(--azul);color:#fff;border:none;border-radius:10px;padding:12px 20px;font-family:inherit;font-weight:800;font-size:15px;cursor:pointer}
+  .btn:hover{background:#1257ab}
+  .msg{font-weight:700;font-size:14px;margin-top:12px;min-height:18px}
+  .msg.ok{color:var(--verde)} .msg.bad{color:#b3261e}
+  table{width:100%;border-collapse:collapse}
+  th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--linea);font-size:14px}
+  th{color:var(--gris);font-size:12px}
+  .vacio{color:var(--gris);font-weight:600;background:var(--cielo);border-radius:12px;padding:22px;text-align:center}
+  .hint{color:var(--gris);font-weight:600;font-size:13px;margin-top:8px}
+  .credito{color:var(--gris);font-weight:600;font-size:12px;line-height:1.8;text-align:center}
+  .credito a{color:var(--azul);text-decoration:none}
+  .credito a:hover{text-decoration:underline}
+  .credito.login{margin-top:20px;padding-top:16px;border-top:1px solid var(--linea)}
+  .credito.app{padding:8px 20px 44px}
+
+  .instalar{margin-top:14px;background:#fff;color:var(--azul);border:2px solid var(--azul);border-radius:999px;padding:10px 18px;font-family:inherit;font-weight:800;font-size:14px;cursor:pointer;display:none}
+  .instalar:hover{background:var(--cielo)}
+  .iosnota{display:none;margin-top:12px;font-weight:600;font-size:13px;color:var(--gris);background:var(--cielo);border-radius:12px;padding:12px 14px}
+
+  .acc{position:fixed;right:16px;bottom:16px;display:flex;flex-direction:column;gap:10px;z-index:20}
+  .acc button{width:56px;height:56px;border-radius:50%;border:none;background:var(--azul);color:#fff;box-shadow:0 8px 24px rgba(22,104,201,.35);cursor:pointer;display:flex;align-items:center;justify-content:center}
+  .acc button svg{width:26px;height:26px}
+  .acc button.activo{background:var(--sol)}
+  .acc button:disabled{background:#b9c3d0;box-shadow:none;cursor:default}
+  .acctoast{position:fixed;left:50%;bottom:92px;transform:translateX(-50%);background:var(--tinta);color:#fff;font-weight:700;font-size:14px;padding:10px 16px;border-radius:12px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:20;max-width:90vw;text-align:center}
+  .acctoast.ver{opacity:1}
+
+  @media (max-width:520px){
+    .barra{flex-wrap:wrap;gap:8px;padding:12px 14px}
+    .usuario{width:100%;justify-content:flex-end}
+    main{padding:18px 14px 70px}
+    h1{font-size:21px}
+    .panel{padding:16px}
+    .acc button{width:50px;height:50px}
+    .acc button svg{width:23px;height:23px}
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ INGRESO ============ -->
+<section id="login">
+  <div class="card">
+    <div class="marca" aria-label="AprendoLibre"><span id="icoLogin"></span><span>Aprendo</span><span class="az">Libre</span></div>
+    <p class="lema">Prepárate para tus exámenes libres</p>
+    <div class="formlogin">
+      <label for="inEmail">Correo</label>
+      <input id="inEmail" type="email" autocomplete="username" placeholder="tucorreo@ejemplo.com">
+      <label for="inClave">Clave</label>
+      <input id="inClave" type="password" autocomplete="current-password" placeholder="Tu clave" onkeydown="if(event.key==='Enter')ingresar()">
+      <button class="btn ancho" onclick="ingresar()">Ingresar</button>
+    </div>
+    <button id="btnInstalar" class="instalar" onclick="instalar()">Agregar a la pantalla de inicio</button>
+    <div id="iosNota" class="iosnota">Para dejar el acceso directo en tu iPhone: toca el botón Compartir y luego "Agregar a inicio".</div>
+    <div id="avisoLogin" class="aviso"></div>
+    <div class="credito login">
+      Creado por Luis Ernest Leyton Johns. Todos los derechos reservados.<br>
+      <a href="https://linkedin.com/in/luis-leyton-johns" target="_blank" rel="noopener">LinkedIn</a>
+      &nbsp;&nbsp; ORCID <a href="https://orcid.org/0000-0002-4462-403X" target="_blank" rel="noopener">0000-0002-4462-403X</a>
+    </div>
+  </div>
+</section>
+
+<!-- ============ APLICACIÓN ============ -->
+<div id="app">
+  <div class="barra">
+    <div class="marca"><span id="icoBarra"></span><span>Aprendo</span><span class="az">Libre</span></div>
+    <div class="usuario"><span id="nombreUsuario"></span><span class="rolchip" id="rolUsuario"></span><button class="salir" onclick="salir()">Salir</button></div>
+  </div>
+  <main id="contenido"></main>
+  <footer class="credito app">
+    Creado por Luis Ernest Leyton Johns. Todos los derechos reservados.<br>
+    <a href="https://linkedin.com/in/luis-leyton-johns" target="_blank" rel="noopener">LinkedIn</a>
+    &nbsp;&nbsp; ORCID <a href="https://orcid.org/0000-0002-4462-403X" target="_blank" rel="noopener">0000-0002-4462-403X</a>
+  </footer>
+</div>
+
+<!-- Accesibilidad -->
+<div class="acc">
+  <button id="btnLeer" onclick="alternarLectura()" aria-label="Escuchar la pantalla" title="Escuchar"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 9v6h4l5 5V4L8 9H4z"/><path d="M16.5 8.5a4 4 0 010 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+  <button id="btnVoz" onclick="alternarVoz()" aria-label="Comandos de voz" title="Comandos de voz"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0012 0M12 17v4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+</div>
+<div id="accToast" class="acctoast"></div>
+
+<script>
+/* ===================== CONFIGURACIÓN ===================== */
+const API_URL = "PEGA_AQUI_LA_URL_/exec";
+/* ======================================================== */
+
+const NIVELES = ['1° Básico','2° Básico','3° Básico','4° Básico','5° Básico','6° Básico','7° Básico','8° Básico','1° Medio','2° Medio','3° Medio','4° Medio'];
+const ICONO = '<svg class="ico" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">'+
+  '<rect width="100" height="100" rx="26" fill="#1668c9"/>'+
+  '<path d="M50 68 L22 60 L22 44 L50 52 Z" fill="#fff"/><path d="M50 68 L78 60 L78 44 L50 52 Z" fill="#fff"/>'+
+  '<path d="M50 52 L50 68" stroke="#1668c9" stroke-width="2.4"/>'+
+  '<path d="M34 32 Q43 23 50 31" fill="none" stroke="#f2a33c" stroke-width="4.6" stroke-linecap="round"/>'+
+  '<path d="M50 31 Q57 23 66 32" fill="none" stroke="#f2a33c" stroke-width="4.6" stroke-linecap="round"/></svg>';
+
+let sesionToken = null;
+let usuarioActual = null;
+
+document.getElementById('icoLogin').innerHTML = ICONO;
+document.getElementById('icoBarra').innerHTML = ICONO;
+
+window.onload = async function(){
+  sesionToken = localStorage.getItem('aprendolibre_token');
+  if (sesionToken){
+    try{ const r = await api('sesion', {}); if (r.ok){ usuarioActual = r.usuario; return entrarApp(); } }catch(e){}
+    localStorage.removeItem('aprendolibre_token'); sesionToken = null;
+  }
+};
+
+function mostrarAviso(txt, tipo){ const a=document.getElementById('avisoLogin'); a.textContent=txt; a.className='aviso '+tipo; }
+
+async function api(action, payload){
+  const body = Object.assign({ action:action, token:sesionToken }, payload||{});
+  const r = await fetch(API_URL, { method:'POST', body: JSON.stringify(body) });
+  return r.json();
+}
+
+async function ingresar(){
+  const email = val('inEmail').toLowerCase(), clave = val('inClave');
+  if (!email || !clave) return mostrarAviso('Ingresa tu correo y tu clave.', 'err');
+  mostrarAviso('Ingresando...', 'info');
+  try{
+    const r = await api('login', { email, clave });
+    if (!r.ok) return mostrarAviso(r.motivo === 'credenciales' ? 'Correo o clave incorrectos.' : 'No se pudo ingresar.', 'err');
+    sesionToken = r.token; localStorage.setItem('aprendolibre_token', sesionToken);
+    usuarioActual = r.usuario; entrarApp();
+  }catch(e){ mostrarAviso('No hay conexión con el servidor. Revisa la URL de la app.', 'err'); }
+}
+
+function entrarApp(){
+  document.getElementById('login').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('nombreUsuario').textContent = usuarioActual.nombre || usuarioActual.email;
+  const roles = { director:'Director', estudiante:'Estudiante', apoderado:'Apoderado' };
+  document.getElementById('rolUsuario').textContent = roles[usuarioActual.rol] || usuarioActual.rol;
+  if (usuarioActual.rol === 'director') panelDirector();
+  else if (usuarioActual.rol === 'estudiante') panelEstudiante();
+  else panelApoderado();
+  document.getElementById('contenido').insertAdjacentHTML('beforeend', htmlCuenta());
+}
+
+function salir(){
+  try{ api('logout', {}); }catch(e){}
+  localStorage.removeItem('aprendolibre_token'); sesionToken=null; usuarioActual=null; location.reload();
+}
+
+/* ---------- Panel DIRECTOR ---------- */
+function panelDirector(){
+  document.getElementById('contenido').innerHTML = `
+    <h1>Panel del director</h1>
+    <p class="sub">Crea usuarios con su clave, asígnales nivel y vincula apoderados con estudiantes.</p>
+    <div class="panel">
+      <h2>Crear usuario</h2>
+      <div class="fila">
+        <div><label>Nombre</label><input id="nUsuario" placeholder="Nombre y apellido"></div>
+        <div><label>Correo</label><input id="eUsuario" type="email" placeholder="persona@ejemplo.com"></div>
+        <div><label>Rol</label><select id="rUsuario" onchange="toggleNivel()"><option value="estudiante">Estudiante</option><option value="apoderado">Apoderado</option></select></div>
+      </div>
+      <div class="fila">
+        <div id="wrapNivel"><label>Nivel</label><select id="nivelUsuario"></select></div>
+        <div><label>Clave inicial</label><input id="cUsuario" type="text" placeholder="mínimo 4 caracteres"></div>
+      </div>
+      <button class="btn" onclick="crearUsuario()">Crear usuario</button>
+      <div class="hint">El usuario ingresará con ese correo y esa clave; luego puede cambiarla desde su cuenta.</div>
+      <div class="msg" id="msgCrear"></div>
+    </div>
+    <div class="panel">
+      <h2>Vincular apoderado con estudiante</h2>
+      <div class="fila">
+        <div><label>Apoderado</label><select id="vApoderado"></select></div>
+        <div><label>Estudiante</label><select id="vEstudiante"></select></div>
+      </div>
+      <button class="btn" onclick="vincular()">Vincular</button>
+      <div class="msg" id="msgVinc"></div>
+    </div>
+    <div class="panel">
+      <h2>Usuarios registrados</h2>
+      <div id="tablaUsuarios"><div class="vacio">Cargando...</div></div>
+    </div>`;
+  poblarNiveles(); toggleNivel(); cargarUsuarios();
+}
+
+function poblarNiveles(){
+  const s = document.getElementById('nivelUsuario');
+  if (s) s.innerHTML = NIVELES.map(n => `<option value="${n}">${n}</option>`).join('');
+}
+function toggleNivel(){
+  const rol = val('rUsuario'); const w = document.getElementById('wrapNivel');
+  if (w) w.style.display = (rol === 'estudiante') ? 'block' : 'none';
+}
+
+async function cargarUsuarios(){
+  const r = await api('listarUsuarios', {});
+  if (!r.ok) return;
+  const cont = document.getElementById('tablaUsuarios');
+  if (!r.usuarios.length){ cont.innerHTML = '<div class="vacio">Aún no hay usuarios. Crea el primero arriba.</div>'; }
+  else{
+    let f = '<table><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Nivel</th></tr>';
+    r.usuarios.forEach(u => f += `<tr><td>${esc(u.nombre)}</td><td>${esc(u.email)}</td><td>${esc(u.rol)}</td><td>${esc(u.nivel||'')}</td></tr>`);
+    cont.innerHTML = f + '</table>';
+  }
+  const ap = document.getElementById('vApoderado'), es = document.getElementById('vEstudiante');
+  const apoderados = r.usuarios.filter(u => u.rol === 'apoderado');
+  ap.innerHTML = apoderados.length ? apoderados.map(u=>`<option value="${esc(u.email)}">${esc(u.nombre)}</option>`).join('') : '<option value="">Sin apoderados</option>';
+  es.innerHTML = r.estudiantes.length ? r.estudiantes.map(u=>`<option value="${esc(u.email)}">${esc(u.nombre)} (${esc(u.nivel||'')})</option>`).join('') : '<option value="">Sin estudiantes</option>';
+}
+
+async function crearUsuario(){
+  const nombre = val('nUsuario'), email = val('eUsuario').toLowerCase(), rol = val('rUsuario'), clave = val('cUsuario');
+  const nivel = rol === 'estudiante' ? val('nivelUsuario') : '';
+  const m = document.getElementById('msgCrear');
+  if (!nombre || !email || !clave) return setMsg(m, 'Completa nombre, correo y clave.', 'bad');
+  setMsg(m, 'Creando...', '');
+  const r = await api('crearUsuario', { nombre, email, rol, nivel, clave });
+  if (r.ok){ setMsg(m, 'Usuario creado.', 'ok'); document.getElementById('nUsuario').value=''; document.getElementById('eUsuario').value=''; document.getElementById('cUsuario').value=''; cargarUsuarios(); }
+  else setMsg(m, motivoTexto(r.motivo), 'bad');
+}
+
+async function vincular(){
+  const apoderadoEmail = val('vApoderado'), estudianteEmail = val('vEstudiante');
+  const m = document.getElementById('msgVinc');
+  if (!apoderadoEmail || !estudianteEmail) return setMsg(m, 'Elige un apoderado y un estudiante.', 'bad');
+  setMsg(m, 'Vinculando...', '');
+  const r = await api('vincular', { apoderadoEmail, estudianteEmail });
+  if (r.ok) setMsg(m, 'Vínculo creado.', 'ok');
+  else setMsg(m, motivoTexto(r.motivo), 'bad');
+}
+
+/* ---------- Paneles ESTUDIANTE / APODERADO ---------- */
+function panelEstudiante(){
+  document.getElementById('contenido').innerHTML = `
+    <h1>Hola, ${esc(usuarioActual.nombre||'')}</h1>
+    <p class="sub">Nivel: ${esc(usuarioActual.nivel||'')}. Aquí estudiarás tus cuadernos y rendirás tus ensayos.</p>
+    <div class="panel"><div class="vacio">Pronto verás aquí tus cuadernos y ensayos.</div></div>`;
+}
+function panelApoderado(){
+  document.getElementById('contenido').innerHTML = `
+    <h1>Hola, ${esc(usuarioActual.nombre||'')}</h1>
+    <p class="sub">Aquí verás el avance y los resultados de tu estudiante.</p>
+    <div class="panel"><div class="vacio">Todavía no hay información para mostrar.</div></div>`;
+}
+
+/* ---------- Mi cuenta: cambiar clave (todos los roles) ---------- */
+function htmlCuenta(){
+  return `<div class="panel">
+    <h2>Mi cuenta</h2>
+    <div class="fila">
+      <div><label>Clave actual</label><input id="ccActual" type="password" autocomplete="current-password"></div>
+      <div><label>Clave nueva</label><input id="ccNueva" type="password" autocomplete="new-password" placeholder="mínimo 4 caracteres"></div>
+    </div>
+    <button class="btn" onclick="cambiarMiClave()">Cambiar mi clave</button>
+    <div class="msg" id="msgClave"></div>
+  </div>`;
+}
+async function cambiarMiClave(){
+  const a = val('ccActual'), n = val('ccNueva'); const m = document.getElementById('msgClave');
+  if (!a || !n) return setMsg(m, 'Completa ambas claves.', 'bad');
+  setMsg(m, 'Guardando...', '');
+  const r = await api('cambiarClave', { claveActual:a, claveNueva:n });
+  if (r.ok){ setMsg(m, 'Clave actualizada.', 'ok'); document.getElementById('ccActual').value=''; document.getElementById('ccNueva').value=''; }
+  else setMsg(m, motivoTexto(r.motivo), 'bad');
+}
+
+/* ---------- utilitarios ---------- */
+function val(id){ return (document.getElementById(id).value || '').trim(); }
+function setMsg(el, txt, tipo){ el.textContent = txt; el.className = 'msg ' + tipo; }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function motivoTexto(m){
+  return ({ duplicado:'Ese correo ya está registrado.', datos:'Datos incompletos o clave muy corta (mínimo 4).',
+    rol:'Rol no permitido.', nivel_falta:'Debes elegir el nivel del estudiante.', no_autorizado:'No tienes permiso para esta acción.',
+    vinculo_duplicado:'Ese vínculo ya existe.', no_existe:'El usuario indicado no existe.',
+    clave_actual:'La clave actual no es correcta.', clave_corta:'La clave nueva es muy corta (mínimo 4).',
+    credenciales:'Correo o clave incorrectos.', sesion:'Tu sesión expiró, ingresa de nuevo.' }[m]) || 'No se pudo completar la acción.';
+}
+
+/* ===================== PWA: instalar y offline ===================== */
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(()=>{}));
+let promptInstalar = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); promptInstalar = e; const b=document.getElementById('btnInstalar'); if(b) b.style.display='inline-block'; });
+window.addEventListener('appinstalled', () => { promptInstalar=null; const b=document.getElementById('btnInstalar'); if(b) b.style.display='none'; });
+function instalar(){ if(promptInstalar){ promptInstalar.prompt(); promptInstalar=null; document.getElementById('btnInstalar').style.display='none'; } }
+(function(){
+  const esIOS = /iphone|ipad|ipod/i.test(navigator.userAgent||'');
+  const enApp = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+  if (esIOS && !enApp){ const n=document.getElementById('iosNota'); if(n) n.style.display='block'; }
+})();
+
+/* ===================== Lectura en voz alta ===================== */
+let vozES = null, leyendo = false;
+function elegirVoz(){ const vs = window.speechSynthesis ? speechSynthesis.getVoices() : []; vozES = vs.find(v=>/es[-_]CL/i.test(v.lang)) || vs.find(v=>/^es/i.test(v.lang)) || null; }
+if (window.speechSynthesis){ elegirVoz(); speechSynthesis.onvoiceschanged = elegirVoz; }
+function hablar(texto){
+  if (!window.speechSynthesis || !texto) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(texto);
+  u.lang='es-CL'; if(vozES) u.voice=vozES; u.rate=0.96;
+  u.onend=()=>{ leyendo=false; sincroLeer(); };
+  leyendo=true; sincroLeer(); speechSynthesis.speak(u);
+}
+function detenerLectura(){ if(window.speechSynthesis) speechSynthesis.cancel(); leyendo=false; sincroLeer(); }
+function sincroLeer(){ const b=document.getElementById('btnLeer'); if(b) b.classList.toggle('activo', leyendo); }
+function textoPantalla(){
+  const app = document.getElementById('app');
+  if (app && app.style.display==='block'){ const m=document.getElementById('contenido'); return m?m.innerText:''; }
+  const c = document.querySelector('#login .card'); return c?c.innerText:'';
+}
+function alternarLectura(){
+  if (!window.speechSynthesis){ toast('Este dispositivo no permite lectura en voz alta.'); return; }
+  if (leyendo){ detenerLectura(); return; }
+  const t = textoPantalla().replace(/\s+/g,' ').trim();
+  if (!t){ toast('No hay texto para leer aquí.'); return; }
+  hablar(t);
+}
+function leer(texto){ hablar(texto); }
+
+/* ===================== Comandos de voz ===================== */
+let recon = null, vozActiva = false;
+const RECON = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+if (!RECON){ const b=document.getElementById('btnVoz'); if(b){ b.disabled=true; b.title='No disponible en este navegador'; } }
+function alternarVoz(){
+  if (!RECON){ toast('Los comandos de voz no están disponibles en este navegador.'); return; }
+  if (vozActiva){ vozActiva=false; if(recon) recon.stop(); return; }
+  recon = new RECON(); recon.lang='es-CL'; recon.continuous=true; recon.interimResults=false;
+  recon.onresult = ev => routearComando(ev.results[ev.results.length-1][0].transcript.toLowerCase());
+  recon.onerror = ()=>{};
+  recon.onend = ()=>{ if(vozActiva){ try{ recon.start(); }catch(e){} } else sincroVoz(); };
+  vozActiva=true; try{ recon.start(); }catch(e){}
+  sincroVoz(); toast('Escuchando. Di: leer, detener o salir.');
+}
+function sincroVoz(){ const b=document.getElementById('btnVoz'); if(b) b.classList.toggle('activo', vozActiva); }
+function routearComando(t){
+  if (/\b(leer|lee|escuchar)\b/.test(t)){ detenerLectura(); const x=textoPantalla().replace(/\s+/g,' ').trim(); if(x) hablar(x); return; }
+  if (/\b(detener|para|silencio|basta)\b/.test(t)) return detenerLectura();
+  if (/\b(salir|cerrar sesion|cerrar sesión)\b/.test(t)) return salir();
+}
+function toast(msg){ const el=document.getElementById('accToast'); if(!el) return; el.textContent=msg; el.classList.add('ver'); clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove('ver'),2600); }
+</script>
+</body>
+</html>
