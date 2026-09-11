@@ -89,6 +89,52 @@
   .acctoast{position:fixed;left:50%;bottom:92px;transform:translateX(-50%);background:var(--tinta);color:#fff;font-weight:700;font-size:14px;padding:10px 16px;border-radius:12px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:20;max-width:90vw;text-align:center}
   .acctoast.ver{opacity:1}
 
+  /* Cuadernos */
+  .barrasup{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+  .btn.sec{background:#fff;color:var(--azul);border:2px solid var(--azul)}
+  .btn.sec:hover{background:var(--cielo)}
+  .cuadgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
+  .cuadcard{background:#fff;border:1px solid var(--linea);border-radius:16px;padding:18px}
+  .cuadcard h3{margin:0 0 4px;font-size:16px}
+  .cuadcard .um{color:var(--gris);font-weight:600;font-size:13px;margin:0 0 12px}
+  .cuadcard .acc2{display:flex;gap:8px;flex-wrap:wrap}
+  .cuadcard .btn{padding:9px 14px;font-size:14px}
+  .volver{background:none;border:none;color:var(--azul);font-family:inherit;font-weight:800;font-size:15px;cursor:pointer;padding:0;margin-bottom:8px}
+  .lectura{background:#fff;border:1px solid var(--linea);border-radius:16px;padding:20px;margin-bottom:16px}
+  .lectura .cab{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+  .lectura h3{margin:0;font-size:17px}
+  .lectura .herr{display:flex;gap:8px;flex-wrap:wrap}
+  .mini{border:1px solid var(--linea);background:#fff;border-radius:10px;padding:7px 12px;font-family:inherit;font-weight:700;font-size:13px;color:var(--tinta);cursor:pointer}
+  .mini:hover{background:var(--cielo)}
+  .mini.ok{background:#e9f7ef;color:var(--verde);border-color:#bfe6cf}
+  .bloque{margin-top:14px}
+  .bloque p{margin:0 0 10px;line-height:1.6}
+  .bloque table{width:100%;border-collapse:collapse;margin:6px 0}
+  .bloque th,.bloque td{border:1px solid var(--linea);padding:8px 10px;text-align:left;font-size:14px}
+  .bloque th{background:var(--cielo);color:var(--azul)}
+  .bloque ul{margin:4px 0 4px 18px}
+  .bloque li{margin:2px 0;line-height:1.5}
+  .mapa{display:flex;flex-direction:column;align-items:center;gap:12px;margin:8px 0}
+  .mapa .central{background:var(--azul);color:#fff;font-weight:800;padding:10px 18px;border-radius:999px}
+  .mapa .ramas{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+  .mapa .rama{background:var(--cielo);border:1px solid #cfe0f5;border-radius:14px;padding:10px 14px;min-width:130px}
+  .mapa .rtit{font-weight:800;color:var(--azul);margin-bottom:4px}
+  .mapa .rama ul{margin:0 0 0 16px;padding:0}
+  .tipo{display:inline-block;font-size:11px;font-weight:800;color:var(--gris);text-transform:uppercase;letter-spacing:.03em;margin-bottom:4px}
+
+  /* Impresión */
+  #impresion{display:none}
+  #impresion .doc{color:#000;font-family:Nunito,system-ui,sans-serif;padding:0 6px}
+  #impresion h1{font-size:22px;margin:0 0 4px}
+  #impresion .meta{color:#555;font-weight:600;margin:0 0 14px}
+  #impresion h2{font-size:18px;color:#1668c9;border-bottom:2px solid #cfe0f5;padding-bottom:4px;margin:18px 0 8px}
+  #impresion h3{font-size:15px;margin:12px 0 6px}
+  @media print{
+    body > *:not(#impresion){ display:none !important; }
+    #impresion{ display:block !important; }
+    .acc{ display:none !important; }
+  }
+
   @media (max-width:520px){
     .barra{flex-wrap:wrap;gap:8px;padding:12px 14px}
     .usuario{width:100%;justify-content:flex-end}
@@ -138,6 +184,8 @@
     &nbsp;&nbsp; ORCID <a href="https://orcid.org/0000-0002-4462-403X" target="_blank" rel="noopener">0000-0002-4462-403X</a>
   </footer>
 </div>
+
+<div id="impresion" aria-hidden="true"></div>
 
 <!-- Accesibilidad -->
 <div class="acc">
@@ -240,10 +288,18 @@ function panelDirector(){
       <div class="msg" id="msgVinc"></div>
     </div>
     <div class="panel">
+      <h2>Cuadernos (vista previa)</h2>
+      <div class="fila">
+        <div><label>Nivel</label><select id="nivelPrev"></select></div>
+        <div style="display:flex;align-items:flex-end"><button class="btn" onclick="verCuadernosPrev()">Ver cuadernos</button></div>
+      </div>
+      <div id="dirCuadernos"></div>
+    </div>
+    <div class="panel">
       <h2>Usuarios registrados</h2>
       <div id="tablaUsuarios"><div class="vacio">Cargando...</div></div>
     </div>`;
-  poblarNiveles(); toggleNivel(); cargarUsuarios();
+  poblarNiveles(); poblarNivelesPrev(); toggleNivel(); cargarUsuarios();
 }
 
 function poblarNiveles(){
@@ -294,10 +350,12 @@ async function vincular(){
 
 /* ---------- Paneles ESTUDIANTE / APODERADO ---------- */
 function panelEstudiante(){
+  ctxNivel = '';
   document.getElementById('contenido').innerHTML = `
     <h1>Hola, ${esc(usuarioActual.nombre||'')}</h1>
-    <p class="sub">Nivel: ${esc(usuarioActual.nivel||'')}. Aquí estudiarás tus cuadernos y rendirás tus ensayos.</p>
-    <div class="panel"><div class="vacio">Pronto verás aquí tus cuadernos y ensayos.</div></div>`;
+    <p class="sub">Nivel: ${esc(usuarioActual.nivel||'')}. Estudia tus cuadernos: puedes leerlos, escucharlos o descargarlos para imprimir.</p>
+    <div id="zonaCuadernos"><div class="vacio">Cargando cuadernos...</div></div>`;
+  cargarCuadernos('zonaCuadernos');
 }
 function panelApoderado(){
   document.getElementById('contenido').innerHTML = `
@@ -326,6 +384,122 @@ async function cambiarMiClave(){
   if (r.ok){ setMsg(m, 'Clave actualizada.', 'ok'); document.getElementById('ccActual').value=''; document.getElementById('ccNueva').value=''; }
   else setMsg(m, motivoTexto(r.motivo), 'bad');
 }
+
+/* ---------- Cuadernos (Fase 2) ---------- */
+let ctxNivel = '';
+
+function poblarNivelesPrev(){
+  const s = document.getElementById('nivelPrev');
+  if (s) s.innerHTML = NIVELES.map(n => `<option value="${n}">${n}</option>`).join('');
+}
+function verCuadernosPrev(){ ctxNivel = val('nivelPrev'); cargarCuadernos('dirCuadernos'); }
+
+async function cargarCuadernos(contId){
+  const cont = document.getElementById(contId);
+  cont.innerHTML = '<div class="vacio">Cargando cuadernos...</div>';
+  let r; try{ r = await api('cuadernos', { nivel: ctxNivel }); }catch(e){ cont.innerHTML = '<div class="vacio">No se pudo conectar.</div>'; return; }
+  if (!r.ok || !r.lista || !r.lista.length){ cont.innerHTML = '<div class="vacio">Aún no hay cuadernos para este nivel.</div>'; return; }
+  const cards = r.lista.map(c => `
+    <div class="cuadcard">
+      <h3>${esc(c.asignatura)}</h3>
+      <p class="um">${c.nUnidades} unidad(es)</p>
+      <div class="acc2">
+        <button class="btn" onclick="abrirCuaderno('${escAttr(c.asignatura)}','${contId}')">Abrir</button>
+        <button class="btn sec" onclick="descargarMateria('${escAttr(c.asignatura)}')">Descargar</button>
+      </div>
+    </div>`).join('');
+  cont.innerHTML = `
+    <div class="barrasup"><button class="btn sec" onclick="descargarTodo()">Descargar todos los cuadernos</button></div>
+    <div class="cuadgrid">${cards}</div>`;
+}
+
+async function abrirCuaderno(asig, contId){
+  const cont = document.getElementById(contId);
+  cont.innerHTML = '<div class="vacio">Cargando...</div>';
+  const r = await api('lecturas', { nivel: ctxNivel, asignatura: asig });
+  if (!r.ok || !r.cuadernos.length){ cont.innerHTML = '<div class="vacio">Este cuaderno no tiene contenido.</div>'; return; }
+  const cuad = r.cuadernos[0];
+  let html = `<button class="volver" onclick="cargarCuadernos('${contId}')">‹ Volver a los cuadernos</button>
+    <div class="barrasup"><h1 style="margin:0">${esc(cuad.asignatura)}</h1>
+    <button class="btn sec" onclick="descargarMateria('${escAttr(cuad.asignatura)}')">Descargar este cuaderno</button></div>`;
+  cuad.unidades.forEach(u => {
+    html += `<div class="lectura">
+      <div class="cab"><h3>${u.unidad}. ${esc(u.titulo)}</h3>
+      <div class="herr">
+        <button class="mini" onclick="escucharUnidad(this)">Escuchar</button>
+        <button class="mini" onclick="marcarLeida('${escAttr(cuad.asignatura)}',${u.unidad},this)">Marcar como leída</button>
+      </div></div>
+      <div class="cuerpolec">${u.bloques.map(renderBloque).join('')}</div>
+    </div>`;
+  });
+  cont.innerHTML = html;
+}
+
+function renderBloque(b){
+  const t = b.tipo, c = b.contenido == null ? '' : String(b.contenido);
+  if (t === 'texto') return `<div class="bloque">${c.split(/\n+/).map(p=>`<p>${esc(p)}</p>`).join('')}</div>`;
+  if (t === 'tabla') return `<div class="bloque"><span class="tipo">Tabla</span>${tablaHTML(c)}</div>`;
+  if (t === 'esquema') return `<div class="bloque"><span class="tipo">Esquema</span>${esquemaHTML(c)}</div>`;
+  if (t === 'mapa') return `<div class="bloque"><span class="tipo">Mapa mental</span>${mapaHTML(c)}</div>`;
+  if (t === 'imagen') return `<div class="bloque"><img src="${escAttr(c)}" alt="" style="max-width:100%;border-radius:12px"></div>`;
+  return `<div class="bloque"><p>${esc(c)}</p></div>`;
+}
+function tablaHTML(c){
+  const filas = c.split(/\n/).filter(x=>x.trim()!=='');
+  if (!filas.length) return '';
+  let h = '<table>';
+  filas.forEach((f,i)=>{ const celdas=f.split('|'); const et=i===0?'th':'td'; h+='<tr>'+celdas.map(x=>`<${et}>${esc(x.trim())}</${et}>`).join('')+'</tr>'; });
+  return h+'</table>';
+}
+function esquemaHTML(c){
+  const items = c.split(/\n/).filter(x=>x.trim()!=='').map(l=>({ d:(l.match(/^>*/)[0].length), t:l.replace(/^>+/,'').trim() }));
+  let html='', open=0;
+  items.forEach(it=>{ const level=it.d+1; while(open<level){ html+='<ul>'; open++; } while(open>level){ html+='</ul>'; open--; } html+='<li>'+esc(it.t)+'</li>'; });
+  while(open>0){ html+='</ul>'; open--; }
+  return '<div>'+html+'</div>';
+}
+function mapaHTML(c){
+  const lineas = c.split(/\n/).filter(x=>x.trim()!=='');
+  if(!lineas.length) return '';
+  const central = lineas[0].trim();
+  const ramas = lineas.slice(1).map(l=>l.split(';').map(s=>s.trim()).filter(Boolean));
+  const rHtml = ramas.map(r=>`<div class="rama"><div class="rtit">${esc(r[0]||'')}</div>${r.length>1?'<ul>'+r.slice(1).map(x=>`<li>${esc(x)}</li>`).join('')+'</ul>':''}</div>`).join('');
+  return `<div class="mapa"><div class="central">${esc(central)}</div><div class="ramas">${rHtml}</div></div>`;
+}
+
+function escucharUnidad(btn){
+  if (leyendo){ detenerLectura(); return; }
+  const lec = btn.closest('.lectura');
+  const tit = lec ? lec.querySelector('h3').innerText + '. ' : '';
+  const cuerpo = lec ? lec.querySelector('.cuerpolec').innerText + ' ' : '';
+  hablar((tit + cuerpo).replace(/\s+/g,' ').trim());
+}
+
+async function marcarLeida(asig, unidad, btn){
+  const r = await api('marcarRevisada', { asignatura: asig, unidad: unidad, via: 'vista' });
+  if (r.ok){ btn.textContent = 'Leída'; btn.classList.add('ok'); }
+}
+
+async function descargarMateria(asig){
+  const r = await api('lecturas', { nivel: ctxNivel, asignatura: asig });
+  if (!r.ok || !r.cuadernos.length) return;
+  generarImpresion(r.cuadernos, esc(asig), r.nivel);
+  if (usuarioActual.rol === 'estudiante') r.cuadernos[0].unidades.forEach(u => api('marcarRevisada', { asignatura: asig, unidad: u.unidad, via: 'descarga' }));
+}
+async function descargarTodo(){
+  const r = await api('lecturas', { nivel: ctxNivel });
+  if (!r.ok || !r.cuadernos.length) return;
+  generarImpresion(r.cuadernos, 'Todos los cuadernos', r.nivel);
+}
+
+function generarImpresion(cuadernos, titulo, nivel){
+  let html = `<div class="doc"><h1>AprendoLibre. ${titulo}</h1><p class="meta">Nivel: ${esc(nivel||'')}</p>`;
+  cuadernos.forEach(cu=>{ html += `<h2>${esc(cu.asignatura)}</h2>`; cu.unidades.forEach(u=>{ html += `<h3>${u.unidad}. ${esc(u.titulo)}</h3>` + u.bloques.map(renderBloque).join(''); }); });
+  html += `</div>`;
+  document.getElementById('impresion').innerHTML = html;
+  window.print();
+}
+function escAttr(s){ return String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;'); }
 
 /* ---------- utilitarios ---------- */
 function val(id){ return (document.getElementById(id).value || '').trim(); }
