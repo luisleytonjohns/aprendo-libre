@@ -341,7 +341,17 @@ function salir(){
 function panelDirector(){
   document.getElementById('contenido').innerHTML = `
     <h1>Panel del director</h1>
-    <p class="sub">Crea usuarios con su clave, asígnales nivel y vincula apoderados con estudiantes.</p>
+    <p class="sub">Estadísticas por curso, gestión de usuarios y seguimiento de cada estudiante.</p>
+
+    <div class="panel">
+      <h2>Estadísticas por curso</h2>
+      <div class="fila">
+        <div><label>Curso (nivel)</label><select id="estNivel"></select></div>
+        <div style="display:flex;align-items:flex-end"><button class="btn" onclick="cargarEstadisticas()">Ver estadísticas</button></div>
+      </div>
+      <div id="zonaEstadisticas"></div>
+    </div>
+
     <div class="panel">
       <h2>Crear usuario</h2>
       <div class="fila">
@@ -353,10 +363,24 @@ function panelDirector(){
         <div id="wrapNivel"><label>Nivel</label><select id="nivelUsuario"></select></div>
         <div><label>Clave inicial</label><input id="cUsuario" type="text" placeholder="mínimo 4 caracteres"></div>
       </div>
+      <div class="fila">
+        <div><label>RUT o documento de identidad</label><input id="rutUsuario" placeholder="Ej: 12.345.678-9"></div>
+        <div><label>Teléfono</label><input id="telUsuario" placeholder="+56 9 1234 5678"></div>
+      </div>
+      <div class="fila"><div><label>Dirección</label><input id="dirUsuario" placeholder="Calle, número, comuna"></div></div>
       <button class="btn" onclick="crearUsuario()">Crear usuario</button>
       <div class="hint">El usuario ingresará con ese correo y esa clave; luego puede cambiarla desde su cuenta.</div>
       <div class="msg" id="msgCrear"></div>
     </div>
+
+    <div class="panel">
+      <h2>Editar usuario</h2>
+      <div class="fila">
+        <div><label>Usuario</label><select id="editUsuario" onchange="cargarDatosEditar()"></select></div>
+      </div>
+      <div id="zonaEditar"></div>
+    </div>
+
     <div class="panel">
       <h2>Vincular apoderado con estudiante</h2>
       <div class="fila">
@@ -366,6 +390,7 @@ function panelDirector(){
       <button class="btn" onclick="vincular()">Vincular</button>
       <div class="msg" id="msgVinc"></div>
     </div>
+
     <div class="panel">
       <h2>Configurar plan del estudiante</h2>
       <div class="fila">
@@ -376,14 +401,18 @@ function panelDirector(){
       <div class="hint">Fija la fecha del examen. Para marcar lo ya visto, usa "Punto de partida" más abajo.</div>
       <div class="msg" id="msgCfg"></div>
     </div>
+
     <div class="panel">
       <h2>Punto de partida (lo ya visto)</h2>
       <div class="fila">
         <div><label>Estudiante</label><select id="ppEstudiante" onchange="cargarPuntoPartida()"></select></div>
+        <div style="display:flex;align-items:flex-end"><button class="btn sec" onclick="reiniciarProgreso()">Reiniciar todo su progreso</button></div>
       </div>
-      <div class="hint">Marca las sesiones que el estudiante ya vio en su colegio. El progreso se actualiza al instante.</div>
+      <div class="hint">Marca las sesiones que el estudiante ya vio en su colegio. "Reiniciar todo su progreso" borra las lecturas leídas y los exámenes rendidos (no toca la fecha de su examen).</div>
+      <div class="msg" id="msgReset"></div>
       <div id="zonaPuntoPartida"></div>
     </div>
+
     <div class="panel">
       <h2>Cuadernos (vista previa)</h2>
       <div class="fila">
@@ -392,15 +421,20 @@ function panelDirector(){
       </div>
       <div id="dirCuadernos"></div>
     </div>
+
     <div class="panel">
       <h2>Usuarios registrados</h2>
       <div id="tablaUsuarios"><div class="vacio">Cargando...</div></div>
     </div>`;
-  poblarNiveles(); poblarNivelesPrev(); toggleNivel(); cargarUsuarios();
+  poblarNiveles(); poblarNivelesPrev(); poblarNivelesEst(); toggleNivel(); cargarUsuarios();
 }
 
 function poblarNiveles(){
   const s = document.getElementById('nivelUsuario');
+  if (s) s.innerHTML = NIVELES.map(n => `<option value="${n}">${n}</option>`).join('');
+}
+function poblarNivelesEst(){
+  const s = document.getElementById('estNivel');
   if (s) s.innerHTML = NIVELES.map(n => `<option value="${n}">${n}</option>`).join('');
 }
 function toggleNivel(){
@@ -408,9 +442,12 @@ function toggleNivel(){
   if (w) w.style.display = (rol === 'estudiante') ? 'block' : 'none';
 }
 
+let usuariosCache = [];
+
 async function cargarUsuarios(){
   const r = await api('listarUsuarios', {});
   if (!r.ok) return;
+  usuariosCache = r.usuarios;
   const cont = document.getElementById('tablaUsuarios');
   if (!r.usuarios.length){ cont.innerHTML = '<div class="vacio">Aún no hay usuarios. Crea el primero arriba.</div>'; }
   else{
@@ -426,17 +463,86 @@ async function cargarUsuarios(){
   if (cfg) cfg.innerHTML = r.estudiantes.length ? r.estudiantes.map(u=>`<option value="${esc(u.email)}">${esc(u.nombre)} (${esc(u.nivel||'')})</option>`).join('') : '<option value="">Sin estudiantes</option>';
   const pp = document.getElementById('ppEstudiante');
   if (pp) pp.innerHTML = r.estudiantes.length ? '<option value="">Elige un estudiante…</option>' + r.estudiantes.map(u=>`<option value="${esc(u.email)}">${esc(u.nombre)} (${esc(u.nivel||'')})</option>`).join('') : '<option value="">Sin estudiantes</option>';
+  const ed = document.getElementById('editUsuario');
+  if (ed) ed.innerHTML = r.usuarios.length ? '<option value="">Elige un usuario…</option>' + r.usuarios.map(u=>`<option value="${esc(u.email)}">${esc(u.nombre)} (${esc(u.rol)})</option>`).join('') : '<option value="">Sin usuarios</option>';
 }
 
 async function crearUsuario(){
   const nombre = val('nUsuario'), email = val('eUsuario').toLowerCase(), rol = val('rUsuario'), clave = val('cUsuario');
   const nivel = rol === 'estudiante' ? val('nivelUsuario') : '';
+  const rut = val('rutUsuario'), telefono = val('telUsuario'), direccion = val('dirUsuario');
   const m = document.getElementById('msgCrear');
   if (!nombre || !email || !clave) return setMsg(m, 'Completa nombre, correo y clave.', 'bad');
   setMsg(m, 'Creando...', '');
-  const r = await api('crearUsuario', { nombre, email, rol, nivel, clave });
-  if (r.ok){ setMsg(m, 'Usuario creado.', 'ok'); document.getElementById('nUsuario').value=''; document.getElementById('eUsuario').value=''; document.getElementById('cUsuario').value=''; cargarUsuarios(); }
+  const r = await api('crearUsuario', { nombre, email, rol, nivel, clave, rut, telefono, direccion });
+  if (r.ok){
+    setMsg(m, 'Usuario creado.', 'ok');
+    ['nUsuario','eUsuario','cUsuario','rutUsuario','telUsuario','dirUsuario'].forEach(id => document.getElementById(id).value = '');
+    cargarUsuarios();
+  } else setMsg(m, motivoTexto(r.motivo), 'bad');
+}
+
+function cargarDatosEditar(){
+  const email = val('editUsuario');
+  const cont = document.getElementById('zonaEditar');
+  if (!email){ cont.innerHTML = ''; return; }
+  const u = usuariosCache.find(x => x.email === email);
+  if (!u){ cont.innerHTML = ''; return; }
+  const esEst = u.rol === 'estudiante';
+  cont.innerHTML = `
+    <div class="fila">
+      <div><label>Nombre</label><input id="edNombre" value="${escAttr(u.nombre||'')}"></div>
+      <div><label>Correo</label><input value="${escAttr(u.email)}" disabled style="background:#f3f5f8;color:var(--gris)"></div>
+    </div>
+    ${esEst ? `<div class="fila"><div><label>Nivel</label><select id="edNivel">${NIVELES.map(n=>`<option value="${n}" ${n===u.nivel?'selected':''}>${n}</option>`).join('')}</select></div></div>` : ''}
+    <div class="fila">
+      <div><label>RUT o documento de identidad</label><input id="edRut" value="${escAttr(u.rut||'')}"></div>
+      <div><label>Teléfono</label><input id="edTelefono" value="${escAttr(u.telefono||'')}"></div>
+    </div>
+    <div class="fila"><div><label>Dirección</label><input id="edDireccion" value="${escAttr(u.direccion||'')}"></div></div>
+    <button class="btn" onclick="guardarEdicion('${escAttr(email)}', ${esEst})">Guardar cambios</button>
+    <div class="msg" id="msgEditar"></div>`;
+}
+
+async function guardarEdicion(email, esEst){
+  const m = document.getElementById('msgEditar');
+  const payload = { email, nombre: val('edNombre'), rut: val('edRut'), telefono: val('edTelefono'), direccion: val('edDireccion') };
+  if (esEst) payload.nivel = val('edNivel');
+  setMsg(m, 'Guardando...', '');
+  const r = await api('editarUsuario', payload);
+  if (r.ok){ setMsg(m, 'Datos actualizados.', 'ok'); cargarUsuarios(); }
   else setMsg(m, motivoTexto(r.motivo), 'bad');
+}
+
+async function reiniciarProgreso(){
+  const estudianteEmail = val('ppEstudiante');
+  const m = document.getElementById('msgReset');
+  if (!estudianteEmail) return setMsg(m, 'Elige un estudiante arriba.', 'bad');
+  const u = usuariosCache.find(x => x.email === estudianteEmail);
+  const nombre = u ? u.nombre : estudianteEmail;
+  if (!confirm('¿Reiniciar todo el progreso de ' + nombre + '? Se borrarán sus lecturas leídas y sus exámenes rendidos. Esto no se puede deshacer.')) return;
+  setMsg(m, 'Reiniciando...', '');
+  const r = await api('reiniciarProgreso', { estudianteEmail });
+  if (r.ok){ setMsg(m, 'Progreso reiniciado.', 'ok'); cargarPuntoPartida(); }
+  else setMsg(m, motivoTexto(r.motivo), 'bad');
+}
+
+async function cargarEstadisticas(){
+  const nivel = val('estNivel');
+  const cont = document.getElementById('zonaEstadisticas');
+  cont.innerHTML = '<div class="vacio">Cargando...</div>';
+  const r = await api('estadisticasCurso', { nivel });
+  if (!r.ok){ cont.innerHTML = '<div class="vacio">No se pudo cargar.</div>'; return; }
+  if (!r.estudiantes.length){ cont.innerHTML = '<div class="vacio">Aún no hay estudiantes en este curso.</div>'; return; }
+  let html = `<div class="fila" style="margin-top:6px">
+    <div class="cuadcard" style="flex:1"><h3 style="margin:0">Progreso promedio</h3><p class="um" style="font-size:20px;color:var(--azul);font-weight:800;margin:6px 0 0">${r.promedioProgreso}%</p></div>
+    <div class="cuadcard" style="flex:1"><h3 style="margin:0">Nota promedio</h3><p class="um" style="font-size:20px;color:var(--azul);font-weight:800;margin:6px 0 0">${r.promedioNota != null ? r.promedioNota.toFixed(1) : '—'}</p></div>
+  </div><table style="margin-top:14px"><tr><th>Estudiante</th><th>Progreso</th><th>Exámenes</th><th>Última nota</th></tr>`;
+  r.estudiantes.forEach(e => {
+    html += `<tr><td>${esc(e.nombre)}</td><td>${e.progresoGeneral}%</td><td>${e.examenesRendidos}</td><td>${e.ultimaNota != null ? e.ultimaNota.toFixed(1) : '—'}${e.pendientesAbiertas ? ' <span style="color:var(--sol);font-weight:700">(' + e.pendientesAbiertas + ' pend.)</span>' : ''}</td></tr>`;
+  });
+  html += '</table>';
+  cont.innerHTML = html;
 }
 
 async function vincular(){
