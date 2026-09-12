@@ -328,8 +328,7 @@ function entrarApp(){
   document.getElementById('rolUsuario').textContent = roles[usuarioActual.rol] || usuarioActual.rol;
   if (usuarioActual.rol === 'director') panelDirector();
   else if (usuarioActual.rol === 'estudiante') panelEstudiante();
-  else panelApoderado();
-  if (usuarioActual.rol !== 'estudiante') document.getElementById('contenido').insertAdjacentHTML('beforeend', htmlCuenta());
+  else { panelApoderado(); document.getElementById('contenido').insertAdjacentHTML('beforeend', htmlCuenta()); }
 }
 
 function salir(){
@@ -341,8 +340,36 @@ function salir(){
 function panelDirector(){
   document.getElementById('contenido').innerHTML = `
     <h1>Panel del director</h1>
-    <p class="sub">Estadísticas por curso, gestión de usuarios y seguimiento de cada estudiante.</p>
+    <p class="sub">Elige qué quieres hacer.</p>
+    <div class="cuadgrid">
+      ${dirTarjeta('estadisticas', 'Estadísticas', 'Progreso y notas por curso y por estudiante.')}
+      ${dirTarjeta('usuarios', 'Usuarios', 'Crear, editar y vincular estudiantes y apoderados.')}
+      ${dirTarjeta('plan', 'Plan y progreso', 'Fecha de examen, punto de partida y reinicio de progreso.')}
+      ${dirTarjeta('cuadernos', 'Cuadernos', 'Vista previa de los cuadernos por nivel.')}
+      ${dirTarjeta('cuenta', 'Mi cuenta', 'Cambiar tu clave de acceso.')}
+    </div>`;
+}
 
+function dirTarjeta(id, titulo, desc){
+  return `<div class="cuadcard" style="cursor:pointer" onclick="dirModulo('${id}')"><h3>${esc(titulo)}</h3><p class="um">${esc(desc)}</p></div>`;
+}
+
+function dirVolver(){
+  return `<button class="volver" onclick="panelDirector()">‹ Volver al panel</button>`;
+}
+
+function dirModulo(id){
+  if (id === 'estadisticas') return dirEstadisticas();
+  if (id === 'usuarios') return dirUsuarios();
+  if (id === 'plan') return dirPlan();
+  if (id === 'cuadernos') return dirCuadernosModulo();
+  if (id === 'cuenta') return dirCuenta();
+}
+
+function dirEstadisticas(){
+  document.getElementById('contenido').innerHTML = `
+    ${dirVolver()}
+    <h1>Estadísticas</h1>
     <div class="panel">
       <h2>Estadísticas por curso</h2>
       <div class="fila">
@@ -350,8 +377,14 @@ function panelDirector(){
         <div style="display:flex;align-items:flex-end"><button class="btn" onclick="cargarEstadisticas()">Ver estadísticas</button></div>
       </div>
       <div id="zonaEstadisticas"></div>
-    </div>
+    </div>`;
+  poblarNivelesEst();
+}
 
+function dirUsuarios(){
+  document.getElementById('contenido').innerHTML = `
+    ${dirVolver()}
+    <h1>Usuarios</h1>
     <div class="panel">
       <h2>Crear usuario</h2>
       <div class="fila">
@@ -372,7 +405,6 @@ function panelDirector(){
       <div class="hint">El usuario ingresará con ese correo y esa clave; luego puede cambiarla desde su cuenta.</div>
       <div class="msg" id="msgCrear"></div>
     </div>
-
     <div class="panel">
       <h2>Editar usuario</h2>
       <div class="fila">
@@ -380,7 +412,6 @@ function panelDirector(){
       </div>
       <div id="zonaEditar"></div>
     </div>
-
     <div class="panel">
       <h2>Vincular apoderado con estudiante</h2>
       <div class="fila">
@@ -390,7 +421,17 @@ function panelDirector(){
       <button class="btn" onclick="vincular()">Vincular</button>
       <div class="msg" id="msgVinc"></div>
     </div>
+    <div class="panel">
+      <h2>Usuarios registrados</h2>
+      <div id="tablaUsuarios"><div class="vacio">Cargando...</div></div>
+    </div>`;
+  poblarNiveles(); toggleNivel(); cargarUsuarios();
+}
 
+function dirPlan(){
+  document.getElementById('contenido').innerHTML = `
+    ${dirVolver()}
+    <h1>Plan y progreso</h1>
     <div class="panel">
       <h2>Configurar plan del estudiante</h2>
       <div class="fila">
@@ -401,7 +442,6 @@ function panelDirector(){
       <div class="hint">Fija la fecha del examen. Para marcar lo ya visto, usa "Punto de partida" más abajo.</div>
       <div class="msg" id="msgCfg"></div>
     </div>
-
     <div class="panel">
       <h2>Punto de partida (lo ya visto)</h2>
       <div class="fila">
@@ -411,22 +451,27 @@ function panelDirector(){
       <div class="hint">Marca las sesiones que el estudiante ya vio en su colegio. "Reiniciar todo su progreso" borra las lecturas leídas y los exámenes rendidos (no toca la fecha de su examen).</div>
       <div class="msg" id="msgReset"></div>
       <div id="zonaPuntoPartida"></div>
-    </div>
+    </div>`;
+  cargarUsuarios();
+}
 
+function dirCuadernosModulo(){
+  document.getElementById('contenido').innerHTML = `
+    ${dirVolver()}
+    <h1>Cuadernos</h1>
     <div class="panel">
-      <h2>Cuadernos (vista previa)</h2>
+      <h2>Vista previa por nivel</h2>
       <div class="fila">
         <div><label>Nivel</label><select id="nivelPrev"></select></div>
         <div style="display:flex;align-items:flex-end"><button class="btn" onclick="verCuadernosPrev()">Ver cuadernos</button></div>
       </div>
       <div id="dirCuadernos"></div>
-    </div>
-
-    <div class="panel">
-      <h2>Usuarios registrados</h2>
-      <div id="tablaUsuarios"><div class="vacio">Cargando...</div></div>
     </div>`;
-  poblarNiveles(); poblarNivelesPrev(); poblarNivelesEst(); toggleNivel(); cargarUsuarios();
+  poblarNivelesPrev();
+}
+
+function dirCuenta(){
+  document.getElementById('contenido').innerHTML = dirVolver() + htmlCuenta();
 }
 
 function poblarNiveles(){
@@ -449,16 +494,18 @@ async function cargarUsuarios(){
   if (!r.ok) return;
   usuariosCache = r.usuarios;
   const cont = document.getElementById('tablaUsuarios');
-  if (!r.usuarios.length){ cont.innerHTML = '<div class="vacio">Aún no hay usuarios. Crea el primero arriba.</div>'; }
-  else{
-    let f = '<table><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Nivel</th></tr>';
-    r.usuarios.forEach(u => f += `<tr><td>${esc(u.nombre)}</td><td>${esc(u.email)}</td><td>${esc(u.rol)}</td><td>${esc(u.nivel||'')}</td></tr>`);
-    cont.innerHTML = f + '</table>';
+  if (cont){
+    if (!r.usuarios.length){ cont.innerHTML = '<div class="vacio">Aún no hay usuarios. Crea el primero arriba.</div>'; }
+    else{
+      let f = '<table><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Nivel</th></tr>';
+      r.usuarios.forEach(u => f += `<tr><td>${esc(u.nombre)}</td><td>${esc(u.email)}</td><td>${esc(u.rol)}</td><td>${esc(u.nivel||'')}</td></tr>`);
+      cont.innerHTML = f + '</table>';
+    }
   }
   const ap = document.getElementById('vApoderado'), es = document.getElementById('vEstudiante');
-  const apoderados = r.usuarios.filter(u => u.rol === 'apoderado');
-  ap.innerHTML = apoderados.length ? apoderados.map(u=>`<option value="${esc(u.email)}">${esc(u.nombre)}</option>`).join('') : '<option value="">Sin apoderados</option>';
-  es.innerHTML = r.estudiantes.length ? r.estudiantes.map(u=>`<option value="${esc(u.email)}">${esc(u.nombre)} (${esc(u.nivel||'')})</option>`).join('') : '<option value="">Sin estudiantes</option>';
+  if (ap){ const apoderados = r.usuarios.filter(u => u.rol === 'apoderado');
+    ap.innerHTML = apoderados.length ? apoderados.map(u=>`<option value="${esc(u.email)}">${esc(u.nombre)}</option>`).join('') : '<option value="">Sin apoderados</option>'; }
+  if (es) es.innerHTML = r.estudiantes.length ? r.estudiantes.map(u=>`<option value="${esc(u.email)}">${esc(u.nombre)} (${esc(u.nivel||'')})</option>`).join('') : '<option value="">Sin estudiantes</option>';
   const cfg = document.getElementById('cfgEstudiante');
   if (cfg) cfg.innerHTML = r.estudiantes.length ? r.estudiantes.map(u=>`<option value="${esc(u.email)}">${esc(u.nombre)} (${esc(u.nivel||'')})</option>`).join('') : '<option value="">Sin estudiantes</option>';
   const pp = document.getElementById('ppEstudiante');
