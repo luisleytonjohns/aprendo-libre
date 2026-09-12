@@ -115,13 +115,31 @@
   .lecHead.abierta .chev{transform:rotate(90deg)}
   .lecBody{padding:0 16px 16px}
   .lecBody .herr{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+
+  .temaGrupo{background:#fff;border:1px solid var(--linea);border-radius:16px;margin-bottom:12px;overflow:hidden}
+  .temaHead{width:100%;display:flex;align-items:center;gap:12px;background:var(--cielo);border:none;padding:15px 16px;font-family:inherit;text-align:left;cursor:pointer}
+  .temaHead .tnum{width:30px;height:30px;border-radius:10px;background:var(--azul);color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:14px}
+  .temaHead .ttit{flex:1;font-weight:800;color:var(--azul);font-size:15px}
+  .temaHead .tcont{color:var(--azul);font-weight:700;font-size:13px;background:#fff;border-radius:999px;padding:3px 10px}
+  .temaHead .chev{color:var(--azul);transition:transform .15s;flex:0 0 auto}
+  .temaHead.abierta .chev{transform:rotate(90deg)}
+  .temaBody{padding:10px}
+  .temaBody .lectura{margin-bottom:8px}
+  .temaBody .lectura:last-child{margin-bottom:0}
   .mini{border:1px solid var(--linea);background:#fff;border-radius:10px;padding:7px 12px;font-family:inherit;font-weight:700;font-size:13px;color:var(--tinta);cursor:pointer}
   .mini:hover{background:var(--cielo)}
   .mini.ok{background:#e9f7ef;color:var(--verde);border-color:#bfe6cf}
   .ppMateria{border:1px solid var(--linea);border-radius:14px;margin-bottom:12px;overflow:hidden}
-  .ppCab{display:flex;justify-content:space-between;align-items:center;background:var(--cielo);padding:10px 14px;font-weight:800;color:var(--azul);font-size:14px}
-  .ppList{padding:6px 4px}
-  .ppItem{display:flex;align-items:center;gap:10px;padding:9px 12px;font-size:14px;cursor:pointer;border-bottom:1px solid #f0f3f7}
+  .ppCab{display:flex;justify-content:space-between;align-items:center;background:var(--azul);color:#fff;padding:10px 14px;font-weight:800;font-size:14px}
+  .ppTema{border-top:1px solid var(--linea)}
+  .ppTemaHead{width:100%;display:flex;align-items:center;gap:10px;background:var(--cielo);border:none;padding:10px 14px;font-family:inherit;text-align:left;cursor:pointer}
+  .ppTemaHead .tnum{width:24px;height:24px;border-radius:7px;background:var(--azul);color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:12px}
+  .ppTemaHead .ttit{flex:1;font-weight:700;color:var(--azul);font-size:13.5px}
+  .ppTemaHead .tcont{color:var(--azul);font-weight:700;font-size:12px;background:#fff;border-radius:999px;padding:2px 9px}
+  .ppTemaHead .chev{color:var(--azul);transition:transform .15s;flex:0 0 auto}
+  .ppTemaHead.abierta .chev{transform:rotate(90deg)}
+  .ppList{padding:4px 4px}
+  .ppItem{display:flex;align-items:center;gap:10px;padding:9px 14px;font-size:14px;cursor:pointer;border-bottom:1px solid #f0f3f7}
   .ppItem:last-child{border-bottom:none}
   .ppItem input{width:18px;height:18px;accent-color:var(--azul);flex:0 0 auto}
   .bloque{margin-top:14px}
@@ -436,15 +454,33 @@ async function cargarPuntoPartida(){
   if (!r.ok || !r.cuadernos.length){ cont.innerHTML = '<div class="vacio">Este estudiante aún no tiene cuadernos cargados en su nivel.</div>'; return; }
   cont.innerHTML = r.cuadernos.map(cu => {
     const vistos = cu.unidades.filter(u => u.vista).length;
-    const sl = slug(cu.asignatura);
-    const items = cu.unidades.map(u => `
-      <label class="ppItem">
-        <input type="checkbox" ${u.vista?'checked':''} onchange="togglePunto('${escAttr(email)}','${escAttr(cu.asignatura)}',${u.unidad},this)">
-        <span>${u.unidad}. ${esc(u.titulo)}</span>
-      </label>`).join('');
-    return `<div class="ppMateria" data-asig="${sl}">
+    const grupos = [];
+    cu.unidades.forEach(u => {
+      let g = grupos[grupos.length - 1];
+      if (!g || g.numero !== u.temaNum) { g = { numero: u.temaNum, titulo: u.temaTitulo || 'Unidad', sesiones: [] }; grupos.push(g); }
+      g.sesiones.push(u);
+    });
+    const gruposHtml = grupos.map((g, gi) => {
+      const gv = g.sesiones.filter(s => s.vista).length;
+      const gid = 'ppg-' + slug(cu.asignatura) + '-' + gi;
+      const items = g.sesiones.map(u => `
+        <label class="ppItem">
+          <input type="checkbox" ${u.vista?'checked':''} onchange="togglePunto('${escAttr(email)}','${escAttr(cu.asignatura)}',${u.unidad},this)">
+          <span>${u.unidad}. ${esc(u.titulo)}</span>
+        </label>`).join('');
+      return `<div class="ppTema">
+        <button class="ppTemaHead" onclick="toggleGrupo('${gid}',this)">
+          <span class="tnum">${g.numero != null ? g.numero : gi+1}</span>
+          <span class="ttit">${esc(g.titulo)}</span>
+          <span class="tcont">${gv}/${g.sesiones.length}</span>
+          <span class="chev">›</span>
+        </button>
+        <div class="ppList" id="${gid}" style="display:none">${items}</div>
+      </div>`;
+    }).join('');
+    return `<div class="ppMateria">
       <div class="ppCab"><span>${esc(cu.asignatura)}</span><span class="ppCont">${vistos} de ${cu.unidades.length}</span></div>
-      <div class="ppList">${items}</div>
+      ${gruposHtml}
     </div>`;
   }).join('');
 }
@@ -454,10 +490,16 @@ async function togglePunto(estudianteEmail, asignatura, unidad, chk){
   const r = await api('marcarRevisada', { estudianteEmail, asignatura, unidad, valor: chk.checked });
   chk.disabled = false;
   if (!r.ok){ chk.checked = !chk.checked; return; }
-  const cont = chk.closest('.ppMateria');
-  const total = cont.querySelectorAll('.ppItem input').length;
-  const marcados = cont.querySelectorAll('.ppItem input:checked').length;
-  cont.querySelector('.ppCont').textContent = marcados + ' de ' + total;
+  const tema = chk.closest('.ppTema');
+  if (tema){
+    const t = tema.querySelectorAll('.ppItem input').length;
+    const m = tema.querySelectorAll('.ppItem input:checked').length;
+    tema.querySelector('.ppTemaHead .tcont').textContent = m + '/' + t;
+  }
+  const materia = chk.closest('.ppMateria');
+  const total = materia.querySelectorAll('.ppItem input').length;
+  const marcados = materia.querySelectorAll('.ppItem input:checked').length;
+  materia.querySelector('.ppCont').textContent = marcados + ' de ' + total;
 }
 
 function slug(s){
@@ -539,25 +581,53 @@ async function abrirCuaderno(asig, contId){
   let html = `<button class="volver" onclick="cargarCuadernos('${contId}')">‹ Volver a los cuadernos</button>
     <div class="barrasup"><h1 style="margin:0">${esc(cuad.asignatura)}</h1>
     <button class="btn sec" onclick="descargarMateria('${escAttr(cuad.asignatura)}')">Descargar este cuaderno</button></div>`;
-  cuad.unidades.forEach((u, idx) => {
-    const bid = 'lb-' + idx;
-    html += `<div class="lectura">
-      <button class="lecHead${u.vista?' vista':''}" onclick="toggleSesion('${bid}',this)">
-        <span class="num">${u.unidad}</span>
-        <span class="tit">${esc(u.titulo)}</span>
-        ${u.vista ? '<span class="check">✓ Leída</span>' : ''}
+
+  const grupos = [];
+  cuad.unidades.forEach(u => {
+    let g = grupos[grupos.length - 1];
+    if (!g || g.numero !== u.temaNum) { g = { numero: u.temaNum, titulo: u.temaTitulo || 'Unidad', sesiones: [] }; grupos.push(g); }
+    g.sesiones.push(u);
+  });
+
+  grupos.forEach((g, gi) => {
+    const vistos = g.sesiones.filter(s => s.vista).length;
+    const gid = 'grp-' + gi;
+    html += `<div class="temaGrupo">
+      <button class="temaHead" onclick="toggleGrupo('${gid}',this)">
+        <span class="tnum">${g.numero != null ? g.numero : gi+1}</span>
+        <span class="ttit">${esc(g.titulo)}</span>
+        <span class="tcont">${vistos}/${g.sesiones.length}</span>
         <span class="chev">›</span>
       </button>
-      <div class="lecBody" id="${bid}" style="display:none">
-        <div class="herr">
-          <button class="mini" onclick="escucharUnidad(this)">Escuchar</button>
-          <button class="mini${u.vista?' ok':''}" onclick="marcarLeida('${escAttr(cuad.asignatura)}',${u.unidad},this)">${u.vista?'Leída':'Marcar como leída'}</button>
+      <div class="temaBody" id="${gid}" style="display:none">`;
+    g.sesiones.forEach((u, idx) => {
+      const bid = gid + '-s' + idx;
+      html += `<div class="lectura">
+        <button class="lecHead${u.vista?' vista':''}" onclick="toggleSesion('${bid}',this)">
+          <span class="num">${u.unidad}</span>
+          <span class="tit">${esc(u.titulo)}</span>
+          ${u.vista ? '<span class="check">✓ Leída</span>' : ''}
+          <span class="chev">›</span>
+        </button>
+        <div class="lecBody" id="${bid}" style="display:none">
+          <div class="herr">
+            <button class="mini" onclick="escucharUnidad(this)">Escuchar</button>
+            <button class="mini${u.vista?' ok':''}" onclick="marcarLeida('${escAttr(cuad.asignatura)}',${u.unidad},this)">${u.vista?'Leída':'Marcar como leída'}</button>
+          </div>
+          <div class="cuerpolec">${u.bloques.map(renderBloque).join('')}</div>
         </div>
-        <div class="cuerpolec">${u.bloques.map(renderBloque).join('')}</div>
-      </div>
-    </div>`;
+      </div>`;
+    });
+    html += `</div></div>`;
   });
   cont.innerHTML = html;
+}
+
+function toggleGrupo(id, btn){
+  const el = document.getElementById(id);
+  const abrir = el.style.display === 'none';
+  el.style.display = abrir ? 'block' : 'none';
+  btn.classList.toggle('abierta', abrir);
 }
 
 function toggleSesion(id, btn){
