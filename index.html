@@ -183,6 +183,20 @@
   .nav button{flex:1;background:none;border:none;padding:8px 2px 9px;font-family:inherit;font-weight:700;font-size:11px;color:var(--gris);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px}
   .nav button svg{width:22px;height:22px}
   .nav button.on{color:var(--azul)}
+  .examTimer{position:sticky;top:0;z-index:6;background:#fff;border-bottom:2px solid var(--linea);margin:0 -14px;padding:12px 14px;font-weight:800;text-align:center;color:var(--azul)}
+  .examTimer.alerta{color:#b3261e;border-color:#f3c9c9;background:#fdecec}
+  .examSec{margin:18px 0 10px;font-weight:800;color:var(--azul);font-size:15px;border-bottom:2px solid var(--cielo);padding-bottom:5px}
+  .examQ{background:#fff;border:1px solid var(--linea);border-radius:14px;padding:14px 16px;margin-bottom:12px}
+  .examQ .enun{font-weight:700;margin-bottom:10px;line-height:1.4}
+  .examOpt{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;cursor:pointer;font-size:14.5px}
+  .examOpt:hover{background:var(--cielo)}
+  .examOpt input{width:18px;height:18px;accent-color:var(--azul);flex:0 0 auto}
+  .examTA{width:100%;min-height:74px;border:1px solid var(--linea);border-radius:10px;padding:10px;font-family:inherit;font-size:14px}
+  .resOk{color:var(--verde);font-weight:700} .resBad{color:#b3261e;font-weight:700}
+  .resNota{font-size:42px;font-weight:800;color:var(--azul);line-height:1}
+  .resDetQ{border-left:4px solid var(--linea);padding:10px 12px;margin-bottom:8px;border-radius:8px;background:#fafcff;font-size:14px;line-height:1.5}
+  .resDetQ.ok{border-color:var(--verde)}
+  .resDetQ.bad{border-color:#b3261e}
   .acc{bottom:96px}
   .acctoast{bottom:164px}
   body.stud .credito.app{display:none}
@@ -731,6 +745,7 @@ function panelEstudiante(){
 }
 
 function irTab(t){
+  if (examTimerId){ clearInterval(examTimerId); examTimerId = null; }
   tabActual = t;
   document.querySelectorAll('#navbar button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
   const c = document.getElementById('tabcont');
@@ -741,17 +756,165 @@ function irTab(t){
   return renderEvaluaciones(c);
 }
 
+let examTimerId = null;
+let examenActual = null;
+
 async function renderEvaluaciones(c){
   c.innerHTML = '<div class="vacio">Cargando...</div>';
   const r = await api('inicioEstudiante', {});
   const dim = diminutivo(primerNombre(usuarioActual.nombre));
-  let html = '<h1>Evaluaciones</h1><p class="sub">Aquí rendirás tus ensayos y verás tus notas.</p>';
+  let html = '<h1>Evaluaciones</h1><p class="sub">Aquí rindes tus ensayos y ves tu nota al instante.</p>';
   if (r.ok && r.examenFecha)
     html += `<div class="examCTA"><div class="txt"><strong>Tu examen libre</strong><span>${esc(fmtFecha(r.examenFecha))} · ${Math.max(r.diasRestantes,0)} días restantes</span></div>
-      <button onclick="toast('Muy pronto podrás rendir aquí tu examen libre, ${esc(dim)}.')">Rendir examen libre</button></div>`;
+      <button onclick="mostrarSelectorModo()">Rendir examen libre</button></div>`;
   else
-    html += `<div class="card2"><strong>Examen libre</strong><p style="color:var(--gris);font-weight:600;margin:6px 0 0">Aún no tienes fecha configurada.</p></div>`;
-  html += `<div class="saludo"><img src="motorcito.png" alt="Motorcito"><div class="globo"><div class="dice">Motorcito dice</div><p>Estamos preparando esta sección para que puedas rendir tus ensayos de práctica y ver tus notas al instante. ¡Ya casi está lista!</p></div></div>`;
+    html += `<div class="examCTA"><div class="txt"><strong>Examen libre</strong><span>Puedes practicar cuando quieras</span></div>
+      <button onclick="mostrarSelectorModo()">Rendir examen libre</button></div>`;
+  html += `<div class="saludo"><img src="motorcito.png" alt="Motorcito"><div class="globo"><div class="dice">Motorcito dice</div><p>Tienes ${TIEMPO_EXAMEN_MIN_JS} minutos para responder. Si sales sin querer, cuando vuelvas a entrar seguirás donde quedaste, ¡tranquilo${dim.endsWith('a')?'a':'o'}!</p></div></div>`;
+  c.innerHTML = html;
+}
+const TIEMPO_EXAMEN_MIN_JS = 60;
+
+function mostrarSelectorModo(){
+  const c = document.getElementById('tabcont');
+  c.innerHTML = `
+    <button class="volver" onclick="renderEvaluaciones(document.getElementById('tabcont'))">‹ Volver</button>
+    <h1>¿Cómo quieres rendirlo?</h1>
+    <p class="sub">Elige el tipo de examen libre.</p>
+    <div class="card2" style="cursor:pointer" onclick="iniciarExamenModo('avance')">
+      <strong>Según lo que ya he estudiado</strong>
+      <p style="color:var(--gris);font-weight:600;margin:6px 0 0">Usa las sesiones que ya marcaste como leídas.</p>
+    </div>
+    <div class="card2" style="cursor:pointer" onclick="iniciarExamenModo('total')">
+      <strong>Examen completo (todo el currículum)</strong>
+      <p style="color:var(--gris);font-weight:600;margin:6px 0 0">Incluye las 4 materias completas del año.</p>
+    </div>`;
+}
+
+async function iniciarExamenModo(modo){
+  const c = document.getElementById('tabcont');
+  c.innerHTML = '<div class="vacio">Preparando tu examen...</div>';
+  let r; try{ r = await api('iniciarExamen', { modo }); }catch(e){ c.innerHTML = '<div class="vacio">No se pudo conectar.</div>'; return; }
+  if (!r.ok){
+    if (r.motivo === 'sin_banco') c.innerHTML = '<div class="vacio">Todavía no hay preguntas cargadas para tu nivel. Pídele al director que las cargue.</div>';
+    else c.innerHTML = '<div class="vacio">No se pudo iniciar el examen.</div>';
+    return;
+  }
+  examenActual = { intentoId: r.intentoId, limite: r.limite, examen: r.examen };
+  renderFormExamen();
+}
+
+function renderFormExamen(){
+  const c = document.getElementById('tabcont');
+  let n = 0;
+  let html = `<div class="examTimer" id="examTimer">Cargando tiempo...</div>
+    <h1 style="margin-top:14px">Examen libre</h1>
+    <p class="sub">Responde todas las preguntas que puedas. Puedes desplazarte y volver a revisar antes de entregar.</p>`;
+  examenActual.examen.secciones.forEach(s => {
+    html += `<div class="examSec">${esc(s.asignatura)}</div>`;
+    s.preguntas.forEach(p => {
+      n++;
+      html += `<div class="examQ" data-qid="${escAttr(p.id)}">
+        <div class="enun">${n}. ${esc(p.enunciado)}</div>`;
+      if (p.tipo === 'seleccion'){
+        p.opciones.forEach((op, i) => {
+          html += `<label class="examOpt"><input type="radio" name="q_${escAttr(p.id)}" value="${i}"><span>${esc(op)}</span></label>`;
+        });
+      } else {
+        html += `<textarea class="examTA" id="ta_${escAttr(p.id)}" placeholder="Escribe tu respuesta aquí..."></textarea>`;
+      }
+      html += `</div>`;
+    });
+  });
+  html += `<button class="btn" style="width:100%;margin:10px 0 30px" onclick="confirmarEntrega()">Entregar examen</button>`;
+  c.innerHTML = html;
+  iniciarCronometro();
+}
+
+function iniciarCronometro(){
+  const el = document.getElementById('examTimer');
+  function tick(){
+    const restanteMs = new Date(examenActual.limite).getTime() - Date.now();
+    if (restanteMs <= 0){
+      el.textContent = 'Tiempo terminado. Enviando tu examen...';
+      el.classList.add('alerta');
+      clearInterval(examTimerId); examTimerId = null;
+      entregarExamenAhora(true);
+      return;
+    }
+    const m = Math.floor(restanteMs / 60000), s = Math.floor((restanteMs % 60000) / 1000);
+    el.textContent = 'Tiempo restante: ' + m + ':' + String(s).padStart(2,'0');
+    el.classList.toggle('alerta', restanteMs < 5*60000);
+  }
+  tick();
+  examTimerId = setInterval(tick, 1000);
+}
+
+function recolectarRespuestas(){
+  const respuestas = {};
+  document.querySelectorAll('.examQ').forEach(q => {
+    const id = q.dataset.qid;
+    const marcado = q.querySelector('input[type=radio]:checked');
+    if (marcado){ respuestas[id] = Number(marcado.value); return; }
+    const ta = q.querySelector('textarea');
+    if (ta) respuestas[id] = ta.value;
+  });
+  return respuestas;
+}
+
+function confirmarEntrega(){
+  const total = document.querySelectorAll('.examQ').length;
+  const resp = recolectarRespuestas();
+  const sinResponder = total - Object.keys(resp).length;
+  if (sinResponder > 0 && !confirm('Te quedan ' + sinResponder + ' pregunta(s) sin responder. ¿Entregar de todas formas?')) return;
+  entregarExamenAhora(false);
+}
+
+async function entregarExamenAhora(automatico){
+  if (examTimerId){ clearInterval(examTimerId); examTimerId = null; }
+  const respuestas = recolectarRespuestas();
+  const c = document.getElementById('tabcont');
+  c.innerHTML = '<div class="vacio">Corrigiendo tu examen...</div>';
+  let r; try{ r = await api('entregarExamen', { intentoId: examenActual.intentoId, respuestas }); }catch(e){ c.innerHTML = '<div class="vacio">No se pudo enviar. Revisa tu conexión e inténtalo de nuevo.</div>'; return; }
+  if (!r.ok){ c.innerHTML = '<div class="vacio">No se pudo corregir el examen.</div>'; return; }
+  renderResultadoExamen(r.resultado, automatico);
+}
+
+function renderResultadoExamen(res, automatico){
+  const c = document.getElementById('tabcont');
+  const porMat = {};
+  res.detalle.forEach(d => {
+    if (!porMat[d.asignatura]) porMat[d.asignatura] = { ok: 0, total: 0 };
+    if (d.tipo === 'seleccion'){ porMat[d.asignatura].total++; if (d.correcto) porMat[d.asignatura].ok++; }
+  });
+  let html = '';
+  if (automatico) html += `<div class="card2" style="background:#fff8e6;border-color:#f0dca0"><strong>Se acabó el tiempo</strong><p style="margin:4px 0 0;color:var(--gris);font-weight:600">Enviamos tu examen automáticamente con lo que alcanzaste a responder.</p></div>`;
+  html += `<h1>Tu resultado</h1>
+    <div class="card2" style="text-align:center">
+      <div class="resNota">${res.notaProvisional.toFixed(1)}</div>
+      <p style="color:var(--gris);font-weight:600;margin:4px 0 0">Nota provisional (selección múltiple)</p>
+      <p style="color:var(--gris);font-weight:600">${res.puntajeSelObtenido} de ${res.puntajeSelPosible} puntos</p>
+    </div>`;
+  if (res.pendientesAbiertas > 0)
+    html += `<div class="card2"><strong>${res.pendientesAbiertas} pregunta(s) abiertas pendientes</strong><p style="color:var(--gris);font-weight:600;margin:6px 0 0">Tu director las revisará y tu nota final se actualizará.</p></div>`;
+  html += `<div class="card2"><strong>Resultado por materia</strong>`;
+  Object.keys(porMat).forEach(a => html += `<div class="matline"><div class="top"><span>${esc(a)}</span><span class="pct">${porMat[a].ok}/${porMat[a].total} correctas</span></div><div class="prog"><i style="width:${porMat[a].total?Math.round(porMat[a].ok*100/porMat[a].total):0}%"></i></div></div>`);
+  html += `</div>`;
+  html += `<div class="examSec">Revisión pregunta por pregunta</div>`;
+  res.detalle.forEach((d, i) => {
+    if (d.tipo === 'seleccion'){
+      html += `<div class="resDetQ ${d.correcto?'ok':'bad'}"><strong>${i+1}. ${esc(d.enunciado)}</strong><br>
+        <span class="${d.correcto?'resOk':'resBad'}">${d.correcto?'✓ Correcta':'✗ Incorrecta'}</span>
+        ${!d.correcto ? ' · Respuesta correcta: ' + esc(d.opciones[d.correctaIndex]) : ''}</div>`;
+    } else {
+      html += `<div class="resDetQ"><strong>${i+1}. ${esc(d.enunciado)}</strong><br>
+        <span style="color:var(--gris)">Tu respuesta: ${esc(d.tuRespuesta || '(sin responder)')}</span><br>
+        <span style="color:var(--gris);font-style:italic">Respuesta de referencia: ${esc(d.respuestaModelo)}</span><br>
+        <span style="color:var(--sol);font-weight:700">Pendiente de revisión</span></div>`;
+    }
+  });
+  html += `<div class="motorpie"><img src="motorcito.png" alt=""><span>¡Bien hecho por intentarlo!</span></div>
+    <button class="btn sec" style="width:100%;margin:14px 0 30px" onclick="irTab('evaluaciones')">Volver a Evaluaciones</button>`;
   c.innerHTML = html;
 }
 
