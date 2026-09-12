@@ -76,6 +76,13 @@
   .credito a:hover{text-decoration:underline}
   .credito.login{margin-top:20px;padding-top:16px;border-top:1px solid var(--linea)}
   .credito.app{padding:8px 20px 44px}
+  .avatar{width:90px;height:90px;border-radius:50%;object-fit:cover;border:3px solid var(--linea);background:var(--cielo);flex:0 0 auto}
+  .avatarWrap{display:flex;align-items:center;gap:16px;margin-bottom:14px}
+  .avatarWrap .info{flex:1}
+  .avatarPick{display:none}
+  .avatarBtn{background:none;border:1px solid var(--linea);border-radius:10px;padding:8px 14px;font-family:inherit;font-weight:700;font-size:13px;color:var(--tinta);cursor:pointer;margin-top:6px}
+  .avatarBtn:hover{background:var(--cielo)}
+  .avatarMsg{font-size:13px;color:var(--gris);font-weight:600;margin-top:6px}
 
   .instalar{margin-top:14px;background:#fff;color:var(--azul);border:2px solid var(--azul);border-radius:999px;padding:10px 18px;font-family:inherit;font-weight:800;font-size:14px;cursor:pointer;display:none}
   .instalar:hover{background:var(--cielo)}
@@ -254,7 +261,7 @@
 <div id="app">
   <div class="barra">
     <div class="marca"><span id="icoBarra"></span><span>Aprendo</span><span class="az">Libre</span></div>
-    <div class="usuario"><span id="nombreUsuario"></span><span class="rolchip" id="rolUsuario"></span><button class="salir" onclick="salir()">Salir</button></div>
+    <div class="usuario"><img id="avatarBarra" class="avatar" style="width:36px;height:36px;border:2px solid var(--linea)" src="" alt=""><span id="nombreUsuario"></span><span class="rolchip" id="rolUsuario"></span><button class="salir" onclick="salir()">Salir</button></div>
   </div>
   <main id="contenido"></main>
   <footer class="credito app">
@@ -326,6 +333,8 @@ function entrarApp(){
   document.getElementById('nombreUsuario').textContent = usuarioActual.nombre || usuarioActual.email;
   const roles = { director:'Director', estudiante:'Estudiante', apoderado:'Apoderado' };
   document.getElementById('rolUsuario').textContent = roles[usuarioActual.rol] || usuarioActual.rol;
+  const avatarBarra = document.getElementById('avatarBarra');
+  if (avatarBarra) avatarBarra.src = usuarioActual.foto_url || ('https://ui-avatars.com/api/?name=' + encodeURIComponent(usuarioActual.nombre||'U') + '&background=e8f1fc&color=1668c9&size=36');
   if (usuarioActual.rol === 'director') panelDirector();
   else if (usuarioActual.rol === 'estudiante') panelEstudiante();
   else { panelApoderado(); document.getElementById('contenido').insertAdjacentHTML('beforeend', htmlCuenta()); }
@@ -401,6 +410,15 @@ function dirUsuarios(){
         <div><label>Teléfono</label><input id="telUsuario" placeholder="+56 9 1234 5678"></div>
       </div>
       <div class="fila"><div><label>Dirección</label><input id="dirUsuario" placeholder="Calle, número, comuna"></div></div>
+      <div style="margin-bottom:14px">
+        <label>Foto de perfil (opcional)</label>
+        <div class="avatarWrap" style="margin-top:6px">
+          <img id="prevNuevo" class="avatar" src="https://ui-avatars.com/api/?name=Nuevo&background=e8f1fc&color=1668c9&size=90" alt="">
+          <div><button class="avatarBtn" type="button" onclick="document.getElementById('fotoNuevo').click()">Elegir foto</button>
+          <div class="avatarMsg" id="msgFotoNuevo"></div>
+          <input type="file" id="fotoNuevo" class="avatarPick" accept="image/*" onchange="previewFoto(this,'prevNuevo')"></div>
+        </div>
+      </div>
       <button class="btn" onclick="crearUsuario()">Crear usuario</button>
       <div class="hint">El usuario ingresará con ese correo y esa clave; luego puede cambiarla desde su cuenta.</div>
       <div class="msg" id="msgCrear"></div>
@@ -524,7 +542,14 @@ async function crearUsuario(){
   const r = await api('crearUsuario', { nombre, email, rol, nivel, clave, rut, telefono, direccion });
   if (r.ok){
     setMsg(m, 'Usuario creado.', 'ok');
-    ['nUsuario','eUsuario','cUsuario','rutUsuario','telUsuario','dirUsuario'].forEach(id => document.getElementById(id).value = '');
+    const fotoInput = document.getElementById('fotoNuevo');
+    if (fotoInput && fotoInput.files && fotoInput.files[0]){
+      const base64 = await fileToBase64_(fotoInput.files[0]);
+      await api('subirFotoUsuario', { email, base64, mimeType: fotoInput.files[0].type });
+    }
+    ['nUsuario','eUsuario','cUsuario','rutUsuario','telUsuario','dirUsuario'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+    const pn = document.getElementById('prevNuevo');
+    if (pn) pn.src = 'https://ui-avatars.com/api/?name=Nuevo&background=e8f1fc&color=1668c9&size=90';
     cargarUsuarios();
   } else setMsg(m, motivoTexto(r.motivo), 'bad');
 }
@@ -536,6 +561,7 @@ function cargarDatosEditar(){
   const u = usuariosCache.find(x => x.email === email);
   if (!u){ cont.innerHTML = ''; return; }
   const esEst = u.rol === 'estudiante';
+  const fotoActual = u.foto_url || ('https://ui-avatars.com/api/?name=' + encodeURIComponent(u.nombre||'U') + '&background=e8f1fc&color=1668c9&size=90');
   cont.innerHTML = `
     <div class="fila">
       <div><label>Nombre</label><input id="edNombre" value="${escAttr(u.nombre||'')}"></div>
@@ -547,6 +573,15 @@ function cargarDatosEditar(){
       <div><label>Teléfono</label><input id="edTelefono" value="${escAttr(u.telefono||'')}"></div>
     </div>
     <div class="fila"><div><label>Dirección</label><input id="edDireccion" value="${escAttr(u.direccion||'')}"></div></div>
+    <div style="margin-bottom:14px">
+      <label>Foto de perfil</label>
+      <div class="avatarWrap" style="margin-top:6px">
+        <img id="prevEdit" class="avatar" src="${escAttr(fotoActual)}" alt="">
+        <div><button class="avatarBtn" type="button" onclick="document.getElementById('fotoEdit').click()">Cambiar foto</button>
+        <div class="avatarMsg" id="msgFotoEdit"></div>
+        <input type="file" id="fotoEdit" class="avatarPick" accept="image/*" onchange="subirFotoPerfil(this,'${escAttr(email)}','prevEdit','msgFotoEdit')"></div>
+      </div>
+    </div>
     <button class="btn" onclick="guardarEdicion('${escAttr(email)}', ${esEst})">Guardar cambios</button>
     <div class="msg" id="msgEditar"></div>`;
 }
@@ -697,12 +732,16 @@ async function cargarResumenApoderado(){
   const dim = diminutivo(primerNombre(e.nombre));
   const dim2 = diminutivo(primerNombre(usuarioActual.nombre));
 
+  const fotoEst = e.foto_url || ('https://ui-avatars.com/api/?name=' + encodeURIComponent(e.nombre||'E') + '&background=e8f1fc&color=1668c9&size=90');
   let html = `
     <h1>Hola, ${esc(dim2)}</h1>
     <p class="sub">Aquí ves el avance y los resultados de ${esc(dim)}.</p>
     <div class="card2">
       <div class="examen">
-        <div><strong>${esc(e.nombre)}</strong><br><span style="color:var(--gris);font-weight:600">${esc(e.nivel)}</span></div>
+        <div style="display:flex;align-items:center;gap:14px">
+          <img src="${escAttr(fotoEst)}" class="avatar" alt="${escAttr(e.nombre)}">
+          <div><strong>${esc(e.nombre)}</strong><br><span style="color:var(--gris);font-weight:600">${esc(e.nivel)}</span></div>
+        </div>
         ${r.examenFecha ? `<div class="diaspill">${Math.max(r.diasRestantes,0)}<br>días al examen</div>` : ''}
       </div>
     </div>`;
@@ -768,10 +807,52 @@ async function cargarResumenApoderado(){
   } else { zd.innerHTML = '<div class="vacio">Aún no hay cuadernos cargados.</div>'; }
 }
 
-/* ---------- Mi cuenta: cambiar clave (todos los roles) ---------- */
+function previewFoto(input, previewId){
+  if (!input.files || !input.files[0]) return;
+  const reader = new FileReader();
+  reader.onload = e => { document.getElementById(previewId).src = e.target.result; };
+  reader.readAsDataURL(input.files[0]);
+}
+
+async function subirFotoPerfil(input, emailObjetivo, previewId, msgId){
+  if (!input.files || !input.files[0]) return;
+  const file = input.files[0];
+  const el = document.getElementById(msgId);
+  if (file.size > 4 * 1024 * 1024) return setMsg(el, 'La foto no puede pesar más de 4 MB.', 'bad');
+  previewFoto(input, previewId);
+  setMsg(el, 'Subiendo foto...', '');
+  const base64 = await fileToBase64_(file);
+  const r = await api('subirFotoUsuario', { email: emailObjetivo, base64: base64, mimeType: file.type });
+  if (r.ok){
+    setMsg(el, 'Foto actualizada.', 'ok');
+    if (emailObjetivo === usuarioActual.email){ usuarioActual.foto_url = r.foto_url; }
+  } else { setMsg(el, 'No se pudo subir la foto.', 'bad'); }
+}
+
+function fileToBase64_(file){
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = e => resolve(e.target.result.split(',')[1]);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+
+/* ---------- Mi cuenta: cambiar clave ---------- */
 function htmlCuenta(){
-  return `<div class="panel">
-    <h2>Mi cuenta</h2>
+  const fotoSrc = (usuarioActual.foto_url || '');
+  const avatarHtml = `<div class="avatarWrap">
+    <img id="avatarPreview" class="avatar" src="${fotoSrc || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(usuarioActual.nombre||'U') + '&background=e8f1fc&color=1668c9&size=90'}" alt="Foto de perfil">
+    <div class="info">
+      <strong>${esc(usuarioActual.nombre||'')}</strong><br>
+      <span style="color:var(--gris);font-weight:600">${esc(usuarioActual.email)}</span><br>
+      <button class="avatarBtn" onclick="document.getElementById('avatarInput').click()">Cambiar foto</button>
+      <div class="avatarMsg" id="avatarMsg"></div>
+      <input type="file" id="avatarInput" class="avatarPick" accept="image/*" onchange="subirFotoPerfil(this, '${escAttr(usuarioActual.email)}', 'avatarPreview', 'avatarMsg')">
+    </div>
+  </div>`;
+  return `<div class="panel"><h2>Mi cuenta</h2>
+    ${avatarHtml}
     <div class="fila">
       <div><label>Clave actual</label><input id="ccActual" type="password" autocomplete="current-password"></div>
       <div><label>Clave nueva</label><input id="ccNueva" type="password" autocomplete="new-password" placeholder="mínimo 4 caracteres"></div>
