@@ -122,6 +122,33 @@
   .mapa .rama ul{margin:0 0 0 16px;padding:0}
   .tipo{display:inline-block;font-size:11px;font-weight:800;color:var(--gris);text-transform:uppercase;letter-spacing:.03em;margin-bottom:4px}
 
+  /* Ambiente estudiante */
+  .stapp{padding-bottom:88px}
+  .saludo{background:linear-gradient(180deg,#eaf2fd,#fff);border:1px solid var(--linea);border-radius:20px;padding:16px;display:flex;gap:14px;align-items:flex-start;margin-bottom:16px}
+  .saludo img{width:74px;height:74px;border-radius:50%;flex:0 0 auto;box-shadow:0 4px 14px rgba(22,104,201,.2)}
+  .globo{flex:1;background:#fff;border:1px solid var(--linea);border-radius:16px;border-top-left-radius:4px;padding:12px 14px}
+  .globo .dice{font-weight:800;color:var(--azul);font-size:13px;margin-bottom:2px}
+  .globo p{margin:0 0 8px;line-height:1.5}
+  .card2{background:#fff;border:1px solid var(--linea);border-radius:16px;padding:18px;margin-bottom:16px}
+  .card2 .rot{display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .examen{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .diaspill{background:var(--cielo);color:var(--azul);font-weight:800;border-radius:14px;padding:8px 14px;text-align:center;font-size:14px;line-height:1.1}
+  .prog{height:14px;background:#eef2f7;border-radius:999px;overflow:hidden}
+  .prog>i{display:block;height:100%;background:linear-gradient(90deg,#1668c9,#3f8ae0);border-radius:999px}
+  .pgrande{display:flex;align-items:center;gap:16px}
+  .pgrande .num{font-size:34px;font-weight:800;color:var(--azul)}
+  .matline{margin:12px 0}
+  .matline .top{display:flex;justify-content:space-between;font-weight:700;font-size:14px;margin-bottom:5px}
+  .matline .pct{color:var(--gris);font-weight:600}
+  .motorpie{display:flex;align-items:center;gap:12px;justify-content:center;margin:6px 0 4px;color:var(--azul);font-weight:800}
+  .motorpie img{width:40px;height:40px;border-radius:50%}
+  .nav{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--linea);display:flex;z-index:15}
+  .nav button{flex:1;background:none;border:none;padding:8px 2px 9px;font-family:inherit;font-weight:700;font-size:11px;color:var(--gris);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px}
+  .nav button svg{width:22px;height:22px}
+  .nav button.on{color:var(--azul)}
+  .acc{bottom:96px}
+  .acctoast{bottom:164px}
+
   /* Impresión */
   #impresion{display:none}
   #impresion .doc{color:#000;font-family:Nunito,system-ui,sans-serif;padding:0 6px}
@@ -250,7 +277,7 @@ function entrarApp(){
   if (usuarioActual.rol === 'director') panelDirector();
   else if (usuarioActual.rol === 'estudiante') panelEstudiante();
   else panelApoderado();
-  document.getElementById('contenido').insertAdjacentHTML('beforeend', htmlCuenta());
+  if (usuarioActual.rol !== 'estudiante') document.getElementById('contenido').insertAdjacentHTML('beforeend', htmlCuenta());
 }
 
 function salir(){
@@ -286,6 +313,17 @@ function panelDirector(){
       </div>
       <button class="btn" onclick="vincular()">Vincular</button>
       <div class="msg" id="msgVinc"></div>
+    </div>
+    <div class="panel">
+      <h2>Configurar plan del estudiante</h2>
+      <div class="fila">
+        <div><label>Estudiante</label><select id="cfgEstudiante"></select></div>
+        <div><label>Fecha del examen</label><input id="cfgFecha" type="date"></div>
+        <div><label>Sesiones ya vistas (por materia)</label><input id="cfgHasta" type="number" min="0" placeholder="ej: 3"></div>
+      </div>
+      <button class="btn" onclick="configurarPlan()">Guardar plan</button>
+      <div class="hint">Fija la fecha del examen y marca como vistas las sesiones 1 a N de cada materia (punto de partida). El estudiante puede afinar marcando lecturas como leídas.</div>
+      <div class="msg" id="msgCfg"></div>
     </div>
     <div class="panel">
       <h2>Cuadernos (vista previa)</h2>
@@ -325,6 +363,8 @@ async function cargarUsuarios(){
   const apoderados = r.usuarios.filter(u => u.rol === 'apoderado');
   ap.innerHTML = apoderados.length ? apoderados.map(u=>`<option value="${esc(u.email)}">${esc(u.nombre)}</option>`).join('') : '<option value="">Sin apoderados</option>';
   es.innerHTML = r.estudiantes.length ? r.estudiantes.map(u=>`<option value="${esc(u.email)}">${esc(u.nombre)} (${esc(u.nivel||'')})</option>`).join('') : '<option value="">Sin estudiantes</option>';
+  const cfg = document.getElementById('cfgEstudiante');
+  if (cfg) cfg.innerHTML = r.estudiantes.length ? r.estudiantes.map(u=>`<option value="${esc(u.email)}">${esc(u.nombre)} (${esc(u.nivel||'')})</option>`).join('') : '<option value="">Sin estudiantes</option>';
 }
 
 async function crearUsuario(){
@@ -348,15 +388,17 @@ async function vincular(){
   else setMsg(m, motivoTexto(r.motivo), 'bad');
 }
 
-/* ---------- Paneles ESTUDIANTE / APODERADO ---------- */
-function panelEstudiante(){
-  ctxNivel = '';
-  document.getElementById('contenido').innerHTML = `
-    <h1>Hola, ${esc(usuarioActual.nombre||'')}</h1>
-    <p class="sub">Nivel: ${esc(usuarioActual.nivel||'')}. Estudia tus cuadernos: puedes leerlos, escucharlos o descargarlos para imprimir.</p>
-    <div id="zonaCuadernos"><div class="vacio">Cargando cuadernos...</div></div>`;
-  cargarCuadernos('zonaCuadernos');
+async function configurarPlan(){
+  const estudianteEmail = val('cfgEstudiante'), fechaExamen = val('cfgFecha'), hasta = val('cfgHasta');
+  const m = document.getElementById('msgCfg');
+  if (!estudianteEmail) return setMsg(m, 'Elige un estudiante.', 'bad');
+  setMsg(m, 'Guardando...', '');
+  const r = await api('configurarEstudiante', { estudianteEmail, fechaExamen, hasta });
+  if (r.ok) setMsg(m, 'Plan guardado.', 'ok');
+  else setMsg(m, motivoTexto(r.motivo), 'bad');
 }
+
+/* ---------- Paneles ESTUDIANTE / APODERADO ---------- */
 function panelApoderado(){
   document.getElementById('contenido').innerHTML = `
     <h1>Hola, ${esc(usuarioActual.nombre||'')}</h1>
@@ -501,6 +543,122 @@ function generarImpresion(cuadernos, titulo, nivel){
 }
 function escAttr(s){ return String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;'); }
 
+let tabActual = 'inicio';
+const ICO_NAV = {
+  inicio:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>',
+  cuadernos:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 012-2h12v18H6a2 2 0 01-2-2z"/><path d="M9 3v18"/></svg>',
+  evaluaciones:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>',
+  progreso:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
+  plan:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>'
+};
+
+function panelEstudiante(){
+  ctxNivel = '';
+  document.body.classList.add('stud');
+  document.getElementById('contenido').innerHTML = '<div class="stapp" id="tabcont"></div><nav class="nav" id="navbar"></nav>';
+  const tabs = [['inicio','Inicio'],['cuadernos','Cuadernos'],['evaluaciones','Evaluaciones'],['progreso','Progreso'],['plan','Plan']];
+  document.getElementById('navbar').innerHTML = tabs.map(t =>
+    `<button data-t="${t[0]}" onclick="irTab('${t[0]}')">${ICO_NAV[t[0]]}<span>${t[1]}</span></button>`).join('');
+  irTab('inicio');
+}
+
+function irTab(t){
+  tabActual = t;
+  document.querySelectorAll('#navbar button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
+  const c = document.getElementById('tabcont');
+  if (t === 'inicio') return renderInicio(c);
+  if (t === 'cuadernos'){ c.innerHTML = '<h1>Cuadernos</h1><p class="sub">Tus materias para estudiar, escuchar o descargar.</p><div id="zonaCuadernos"></div>'; return cargarCuadernos('zonaCuadernos'); }
+  if (t === 'progreso') return renderProgreso(c);
+  if (t === 'plan') return renderPlan(c);
+  return placeholderTab(c, 'Evaluaciones', 'Aquí rendirás tus ensayos y verás tus notas. Lo activaremos muy pronto.');
+}
+
+async function renderInicio(c){
+  c.innerHTML = '<div class="vacio">Cargando...</div>';
+  let r; try{ r = await api('inicioEstudiante', {}); }catch(e){ c.innerHTML = '<div class="vacio">No se pudo conectar.</div>'; return; }
+  if (!r.ok){ c.innerHTML = '<div class="vacio">No se pudo cargar tu inicio.</div>'; return; }
+  const dim = diminutivo(primerNombre(usuarioActual.nombre));
+  const saludo = `Hola ${dim}, ¿cómo estás hoy? ¿Sabías que ${datoCurioso()}?`;
+  let html = `<div class="saludo"><img src="motorcito.png" alt="Motorcito">
+    <div class="globo"><div class="dice">Motorcito dice</div><p id="txtSaludo">${esc(saludo)}</p>
+    <button class="mini" onclick="leer(document.getElementById('txtSaludo').innerText)">Escuchar a Motorcito</button></div></div>`;
+  if (r.examenFecha)
+    html += `<div class="card2"><div class="examen"><div><strong>Tu examen</strong><br><span style="color:var(--gris);font-weight:600">${esc(fmtFecha(r.examenFecha))}</span></div><div class="diaspill">${Math.max(r.diasRestantes,0)}<br>días</div></div></div>`;
+  else
+    html += `<div class="card2"><strong>Tu examen</strong><p style="color:var(--gris);font-weight:600;margin:6px 0 0">Aún no tienes fecha de examen. El director la configurará pronto.</p></div>`;
+  html += `<div class="card2"><div class="rot"><strong>Tu progreso general</strong><span style="font-size:22px;color:var(--azul);font-weight:800">${r.progresoGeneral}%</span></div><div class="prog" style="margin-top:8px"><i style="width:${r.progresoGeneral}%"></i></div></div>`;
+  if (r.proxima)
+    html += `<div class="card2"><strong>Hoy</strong><p style="color:var(--gris);font-weight:600;margin:6px 0 12px">${esc(r.proxima.asignatura)} · Sesión ${r.proxima.unidad}: ${esc(r.proxima.titulo)}</p><button class="btn" onclick="irACuaderno('${escAttr(r.proxima.asignatura)}')">Continuar estudiando</button></div>`;
+  else
+    html += `<div class="card2"><strong>¡Vas al día!</strong><p style="color:var(--gris);font-weight:600;margin:6px 0 0">Revisaste todas tus sesiones. Puedes repasar en Cuadernos.</p></div>`;
+  html += `<div class="motorpie"><img src="motorcito.png" alt=""><span>¡Tú puedes, ${esc(dim)}!</span></div>`;
+  c.innerHTML = html;
+}
+
+async function renderProgreso(c){
+  c.innerHTML = '<div class="vacio">Cargando...</div>';
+  const r = await api('inicioEstudiante', {});
+  if (!r.ok){ c.innerHTML = '<div class="vacio">No se pudo cargar.</div>'; return; }
+  let html = `<h1>Mi progreso</h1>
+    <div class="card2"><div class="pgrande"><div class="num">${r.progresoGeneral}%</div><div><strong>Tu progreso general</strong><br><span style="color:var(--gris);font-weight:600">Vas muy bien, sigue así.</span></div></div></div>
+    <div class="card2"><strong>Avance por asignatura</strong>`;
+  (r.porMateria||[]).forEach(m => html += `<div class="matline"><div class="top"><span>${esc(m.asignatura)}</span><span class="pct">${m.revisadas} de ${m.total} · ${m.pct}%</span></div><div class="prog"><i style="width:${m.pct}%"></i></div></div>`);
+  html += `</div><div class="motorpie"><img src="motorcito.png" alt=""><span>¡Sigue así!</span></div>`;
+  c.innerHTML = html;
+}
+
+async function renderPlan(c){
+  c.innerHTML = '<div class="vacio">Cargando...</div>';
+  const r = await api('inicioEstudiante', {});
+  let html = '<h1>Mi plan de estudio</h1>';
+  if (r.ok && r.examenFecha)
+    html += `<div class="card2"><div class="examen"><div><strong>Tu examen</strong><br><span style="color:var(--gris);font-weight:600">${esc(fmtFecha(r.examenFecha))}</span></div><div class="diaspill">${Math.max(r.diasRestantes,0)}<br>días</div></div></div>`;
+  else
+    html += `<div class="card2"><p style="color:var(--gris);font-weight:600;margin:0">Aún no tienes fecha de examen configurada.</p></div>`;
+  if (r.ok && r.proxima)
+    html += `<div class="card2"><strong>Tu próxima sesión</strong><p style="color:var(--gris);font-weight:600;margin:6px 0 12px">${esc(r.proxima.asignatura)} · Sesión ${r.proxima.unidad}: ${esc(r.proxima.titulo)}</p><button class="btn" onclick="irACuaderno('${escAttr(r.proxima.asignatura)}')">Ir a estudiar</button></div>`;
+  html += `<div class="card2"><p style="color:var(--gris);font-weight:600;margin:0">El calendario semana a semana lo activaremos pronto. Por ahora avanza con tu próxima sesión y revisa todo en Cuadernos.</p></div>`;
+  c.innerHTML = html;
+}
+
+function placeholderTab(c, titulo, texto){
+  c.innerHTML = `<h1>${esc(titulo)}</h1>
+    <div class="saludo"><img src="motorcito.png" alt="Motorcito"><div class="globo"><div class="dice">Motorcito dice</div><p>${esc(texto)}</p></div></div>`;
+}
+
+function irACuaderno(asig){
+  irTab('cuadernos');
+  setTimeout(() => abrirCuaderno(asig, 'zonaCuadernos'), 120);
+}
+
+function primerNombre(s){ return String(s||'').trim().split(/\s+/)[0] || ''; }
+function diminutivo(n){
+  if (!n) return '';
+  const u = n.slice(-1).toLowerCase();
+  if (u === 'a') return n.slice(0, -1) + 'ita';
+  if (u === 'o') return n.slice(0, -1) + 'ito';
+  return n + 'ito';
+}
+const DATOS = [
+  'los pulpos tienen tres corazones',
+  'la miel casi nunca se echa a perder',
+  'el desierto de Atacama, en Chile, es uno de los más secos del mundo',
+  'las abejas se comunican bailando',
+  'el corazón de un colibrí late cientos de veces por minuto',
+  'los delfines se llaman entre ellos con silbidos, como si tuvieran nombre',
+  'las estrellas de mar pueden regenerar sus brazos',
+  'el guepardo es el animal terrestre más rápido del mundo',
+  'en la costa de Chile vive el pingüino de Humboldt',
+  'la jirafa y el ser humano tienen la misma cantidad de huesos en el cuello'
+];
+function datoCurioso(){ return DATOS[Math.floor(Math.random() * DATOS.length)]; }
+const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+function fmtFecha(s){
+  const p = String(s).slice(0, 10).split('-');
+  if (p.length !== 3) return String(s);
+  return `${Number(p[2])} de ${MESES[Number(p[1]) - 1] || ''} de ${p[0]}`;
+}
+
 /* ---------- utilitarios ---------- */
 function val(id){ return (document.getElementById(id).value || '').trim(); }
 function setMsg(el, txt, tipo){ el.textContent = txt; el.className = 'msg ' + tipo; }
@@ -527,7 +685,12 @@ function instalar(){ if(promptInstalar){ promptInstalar.prompt(); promptInstalar
 
 /* ===================== Lectura en voz alta ===================== */
 let vozES = null, leyendo = false;
-function elegirVoz(){ const vs = window.speechSynthesis ? speechSynthesis.getVoices() : []; vozES = vs.find(v=>/es[-_]CL/i.test(v.lang)) || vs.find(v=>/^es/i.test(v.lang)) || null; }
+function elegirVoz(){
+  const vs = window.speechSynthesis ? speechSynthesis.getVoices() : [];
+  const es = vs.filter(v => /^es/i.test(v.lang));
+  const masc = es.find(v => /(jorge|diego|carlos|miguel|juan|pablo|male|hombre|masculin)/i.test(v.name));
+  vozES = masc || es.find(v => /es[-_]CL/i.test(v.lang)) || es[0] || null;
+}
 if (window.speechSynthesis){ elegirVoz(); speechSynthesis.onvoiceschanged = elegirVoz; }
 function hablar(texto){
   if (!window.speechSynthesis || !texto) return;
