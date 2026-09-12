@@ -675,10 +675,97 @@ function slug(s){
 
 /* ---------- Paneles ESTUDIANTE / APODERADO ---------- */
 function panelApoderado(){
-  document.getElementById('contenido').innerHTML = `
-    <h1>Hola, ${esc(usuarioActual.nombre||'')}</h1>
-    <p class="sub">Aquí verás el avance y los resultados de tu estudiante.</p>
-    <div class="panel"><div class="vacio">Todavía no hay información para mostrar.</div></div>`;
+  cargarResumenApoderado();
+  document.getElementById('contenido').insertAdjacentHTML('beforeend', htmlCuenta());
+}
+
+async function cargarResumenApoderado(){
+  const c = document.getElementById('contenido');
+  c.innerHTML = '<div class="vacio">Cargando...</div>';
+  let r; try{ r = await api('resumenApoderado', {}); }catch(e){ c.innerHTML='<div class="vacio">No se pudo conectar.</div>'; return; }
+
+  if (!r.ok){
+    if (r.motivo === 'sin_estudiante'){
+      c.innerHTML = `<h1>Hola, ${esc(usuarioActual.nombre||'')}</h1>
+        <div class="saludo"><img src="motorcito.png" alt="Motorcito"><div class="globo"><div class="dice">Motorcito dice</div>
+        <p>Aún no tienes un estudiante vinculado a tu cuenta. El director lo hará pronto.</p></div></div>` + htmlCuenta();
+    } else { c.innerHTML = '<div class="vacio">No se pudo cargar la información.</div>'; }
+    return;
+  }
+
+  const e = r.estudiante;
+  const dim = diminutivo(primerNombre(e.nombre));
+  const dim2 = diminutivo(primerNombre(usuarioActual.nombre));
+
+  let html = `
+    <h1>Hola, ${esc(dim2)}</h1>
+    <p class="sub">Aquí ves el avance y los resultados de ${esc(dim)}.</p>
+    <div class="card2">
+      <div class="examen">
+        <div><strong>${esc(e.nombre)}</strong><br><span style="color:var(--gris);font-weight:600">${esc(e.nivel)}</span></div>
+        ${r.examenFecha ? `<div class="diaspill">${Math.max(r.diasRestantes,0)}<br>días al examen</div>` : ''}
+      </div>
+    </div>`;
+
+  // Progreso general
+  html += `<div class="card2">
+    <div class="rot"><strong>Progreso general</strong><span style="font-size:22px;color:var(--azul);font-weight:800">${r.progresoGeneral}%</span></div>
+    <div class="prog" style="margin-top:8px"><i style="width:${r.progresoGeneral}%"></i></div>`;
+  (r.porMateria||[]).forEach(m => html += `<div class="matline"><div class="top"><span>${esc(m.asignatura)}</span><span class="pct">${m.revisadas} de ${m.total} · ${m.pct}%</span></div><div class="prog"><i style="width:${m.pct}%"></i></div></div>`);
+  html += `</div>`;
+
+  // Último examen
+  if (r.ultimoExamen){
+    const ue = r.ultimoExamen;
+    const notaColor = ue.notaProvisional >= 4 ? 'var(--verde)' : '#b3261e';
+    html += `<div class="card2">
+      <strong>Último examen</strong>
+      <div style="display:flex;align-items:center;gap:16px;margin-top:10px">
+        <div style="font-size:36px;font-weight:800;color:${notaColor}">${ue.notaProvisional != null ? ue.notaProvisional.toFixed(1) : '—'}</div>
+        <div><span style="color:var(--gris);font-weight:600">${fmtFecha(ue.entregadoEn.slice(0,10))}</span><br>
+        ${ue.pendientesAbiertas ? `<span style="color:var(--sol);font-weight:700">${ue.pendientesAbiertas} pregunta(s) abiertas pendientes de revisión</span>` : '<span style="color:var(--verde);font-weight:700">Corrección completada</span>'}</div>
+      </div>`;
+    if (r.historialNotas && r.historialNotas.length > 1){
+      html += `<div style="margin-top:12px"><strong style="font-size:13px;color:var(--gris)">Historial de notas</strong><table style="margin-top:6px"><tr><th>Fecha</th><th>Nota</th><th>Modo</th></tr>`;
+      r.historialNotas.forEach(h => html += `<tr><td>${fmtFecha(h.fecha ? h.fecha.slice(0,10) : '')}</td><td style="color:${h.nota>=4?'var(--verde)':'#b3261e'};font-weight:700">${h.nota != null ? h.nota.toFixed(1) : '—'}</td><td>${h.modo==='total'?'Completo':'Según avance'}</td></tr>`);
+      html += `</table></div>`;
+    }
+    html += `</div>`;
+  } else {
+    html += `<div class="card2"><strong>Exámenes</strong><p style="color:var(--gris);font-weight:600;margin:6px 0 0">${esc(dim)} todavía no ha rendido ningún examen.</p></div>`;
+  }
+
+  // Qué reforzar
+  if (r.reforzar && r.reforzar.length){
+    html += `<div class="card2"><strong>¿Qué reforzar?</strong><p style="color:var(--gris);font-weight:600;margin:6px 0 12px">Estas materias tienen un avance bajo y conviene dedicarles más tiempo:</p>`;
+    r.reforzar.forEach(rf => html += `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><span style="width:10px;height:10px;border-radius:50%;background:var(--sol);flex:0 0 auto;display:inline-block"></span><span>${esc(rf.asignatura)} · ${esc(rf.motivo)}</span></div>`);
+    html += `<div class="saludo" style="margin-top:12px"><img src="motorcito.png" alt="Motorcito"><div class="globo"><div class="dice">Motorcito dice</div><p>Ánimo, ${esc(dim)}. Cada sesión que estudias te acerca más al examen. ¡Tú puedes!</p></div></div></div>`;
+  } else if (r.progresoGeneral > 0){
+    html += `<div class="card2"><div class="motorpie"><img src="motorcito.png" alt=""><span>¡${esc(dim)} va por muy buen camino!</span></div></div>`;
+  }
+
+  // Cuadernos (descargar)
+  html += `<div class="card2"><strong>Cuadernos de ${esc(dim)}</strong><p style="color:var(--gris);font-weight:600;margin:6px 0 12px">Puedes descargar los cuadernos para estudiar en papel.</p>
+    <div id="zonaApoDownload"><div class="vacio">Cargando cuadernos...</div></div></div>`;
+
+  c.innerHTML = html + htmlCuenta();
+
+  // Carga las tarjetas de descarga
+  ctxNivel = e.nivel;
+  const rc = await api('cuadernos', { nivel: e.nivel });
+  const zd = document.getElementById('zonaApoDownload');
+  if (rc.ok && rc.lista && rc.lista.length){
+    zd.innerHTML = '<div class="cuadgrid">' + rc.lista.map(mat => `
+      <div class="cuadcard">
+        <h3>${esc(mat.asignatura)}</h3>
+        <p class="um">${mat.revisadas} de ${mat.nUnidades} · ${mat.pct}%</p>
+        <div class="prog" style="margin-bottom:10px"><i style="width:${mat.pct}%"></i></div>
+        <button class="btn sec" onclick="descargarMateria('${escAttr(mat.asignatura)}')">Descargar</button>
+      </div>`).join('') +
+      `<div class="cuadcard"><h3>Todos los cuadernos</h3><p class="um">Las 4 materias juntas</p>
+        <button class="btn sec" onclick="descargarTodo()">Descargar todos</button></div>
+    </div>`;
+  } else { zd.innerHTML = '<div class="vacio">Aún no hay cuadernos cargados.</div>'; }
 }
 
 /* ---------- Mi cuenta: cambiar clave (todos los roles) ---------- */
