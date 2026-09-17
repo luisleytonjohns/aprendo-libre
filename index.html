@@ -352,6 +352,7 @@ function panelDirector(){
     <p class="sub">Elige qué quieres hacer.</p>
     <div class="cuadgrid">
       ${dirTarjeta('estadisticas', 'Estadísticas', 'Progreso y notas por curso y por estudiante.')}
+      ${dirTarjeta('evaluaciones', 'Evaluaciones', 'Revisar y ajustar correcciones de preguntas abiertas.')}
       ${dirTarjeta('usuarios', 'Usuarios', 'Crear, editar y vincular estudiantes y apoderados.')}
       ${dirTarjeta('plan', 'Plan y progreso', 'Fecha de examen, punto de partida y reinicio de progreso.')}
       ${dirTarjeta('cuadernos', 'Cuadernos', 'Vista previa de los cuadernos por nivel.')}
@@ -369,6 +370,7 @@ function dirVolver(){
 
 function dirModulo(id){
   if (id === 'estadisticas') return dirEstadisticas();
+  if (id === 'evaluaciones') return dirEvaluaciones();
   if (id === 'usuarios') return dirUsuarios();
   if (id === 'plan') return dirPlan();
   if (id === 'cuadernos') return dirCuadernosModulo();
@@ -388,6 +390,112 @@ function dirEstadisticas(){
       <div id="zonaEstadisticas"></div>
     </div>`;
   poblarNivelesEst();
+}
+
+async function dirEvaluaciones(){
+  const c = document.getElementById('contenido');
+  c.innerHTML = dirVolver() + '<h1>Evaluaciones</h1><div class="vacio">Cargando...</div>';
+  const r = await api('listarPendientes', {});
+  if (!r.ok){ c.querySelector('.vacio').textContent = 'No se pudo cargar.'; return; }
+
+  if (!r.intentos.length){
+    c.innerHTML = dirVolver() + '<h1>Evaluaciones</h1>' +
+      '<div class="panel"><div class="vacio">No hay exámenes entregados todavía.</div></div>';
+    return;
+  }
+
+  let html = dirVolver() + '<h1>Evaluaciones</h1><div class="panel"><h2>Exámenes entregados</h2>';
+  html += '<table><tr><th>Estudiante</th><th>Fecha</th><th>Nota provisional</th><th>Nota final</th><th>Estado</th><th></th></tr>';
+  r.intentos.forEach(it => {
+    const fecha = it.entregadoEn ? it.entregadoEn.slice(0,10) : '—';
+    const estado = it.pendientesAbiertas > 0 ? `<span style="color:var(--sol);font-weight:700">${it.pendientesAbiertas} pendiente(s)</span>`
+      : it.corregidoPorGemini ? '<span style="color:var(--verde);font-weight:700">Gemini ✓</span>'
+      : '<span style="color:var(--verde);font-weight:700">Revisado ✓</span>';
+    const notaFinal = it.notaFinal != null ? it.notaFinal.toFixed(1) : '—';
+    const notaColor = it.notaFinal != null ? (it.notaFinal >= 4 ? 'color:var(--verde)' : 'color:#b3261e') : '';
+    html += `<tr>
+      <td>${esc(it.nombre)}</td>
+      <td>${fecha}</td>
+      <td>${it.notaProvisional != null ? it.notaProvisional.toFixed(1) : '—'}</td>
+      <td style="font-weight:700;${notaColor}">${notaFinal}</td>
+      <td>${estado}</td>
+      <td><button class="mini" onclick="abrirRevision('${escAttr(it.id)}')">Revisar</button></td>
+    </tr>`;
+  });
+  html += '</table></div><div id="zonaRevision"></div>';
+  c.innerHTML = html;
+}
+
+async function abrirRevision(intentoId){
+  const z = document.getElementById('zonaRevision');
+  z.innerHTML = '<div class="vacio">Cargando detalle...</div>';
+  const r = await api('corregirAbiertas', { intentoId });
+  if (!r.ok){ z.innerHTML = '<div class="vacio">No se pudo cargar.</div>'; return; }
+  renderRevision(intentoId, r.resultado, z);
+}
+
+function renderRevision(intentoId, res, cont){
+  const abiertas = res.detalle.filter(d => d.tipo === 'abierta');
+  if (!abiertas.length){ cont.innerHTML = '<div class="panel"><div class="vacio">Este examen no tiene preguntas abiertas.</div></div>'; return; }
+
+  const notaColor = (res.notaFinal||res.notaProvisional) >= 4 ? 'var(--verde)' : '#b3261e';
+  let html = `<div class="panel"><h2>Revisión de preguntas abiertas</h2>
+    <div class="fila" style="margin-bottom:12px">
+      <div class="cuadcard" style="flex:1"><h3 style="margin:0">Nota provisional</h3>
+        <p style="font-size:22px;font-weight:800;color:var(--azul);margin:4px 0">${res.notaProvisional != null ? res.notaProvisional.toFixed(1) : '—'}</p></div>
+      <div class="cuadcard" style="flex:1"><h3 style="margin:0">Nota final</h3>
+        <p style="font-size:22px;font-weight:800;color:${notaColor};margin:4px 0" id="notaFinalDisplay">${res.notaFinal != null ? res.notaFinal.toFixed(1) : '—'}</p></div>
+    </div>`;
+
+  abiertas.forEach((p, i) => {
+    const corregida = p.estado !== 'pendiente_revision';
+    const ptsActual = p.puntajeObtenido != null ? p.puntajeObtenido : '';
+    const origen = p.estado === 'corregida_gemini' ? ' (Gemini)' : p.estado === 'corregida_director' ? ' (Director)' : '';
+    html += `<div class="examQ" style="margin-bottom:14px">
+      <div class="enun"><strong>${i+1}. ${esc(p.enunciado)}</strong></div>
+      <div style="background:var(--cielo);border-radius:10px;padding:10px;margin:8px 0">
+        <div style="font-size:12px;font-weight:800;color:var(--azul);margin-bottom:4px">Respuesta del estudiante</div>
+        <div>${esc(p.tuRespuesta || '(sin respuesta)')}</div>
+      </div>
+      <div style="background:#f0f8f4;border-radius:10px;padding:10px;margin:8px 0">
+        <div style="font-size:12px;font-weight:800;color:var(--verde);margin-bottom:4px">Respuesta de referencia</div>
+        <div>${esc(p.respuestaModelo)}</div>
+      </div>
+      ${corregida ? `<div style="background:#e9f7ef;border-radius:10px;padding:10px;margin:8px 0">
+        <div style="font-size:12px;font-weight:800;color:var(--verde);margin-bottom:4px">Retroalimentación de Gemini${origen}</div>
+        <div id="retro_${escAttr(p.id)}">${esc(p.retroalimentacion||'')}</div>
+      </div>` : ''}
+      <div class="fila" style="margin-top:10px;align-items:flex-end;gap:10px">
+        <div>
+          <label>Puntaje${origen} (máx. ${p.puntaje})</label>
+          <input type="number" id="pts_${escAttr(p.id)}" value="${ptsActual}" min="0" max="${p.puntaje}" style="width:80px">
+        </div>
+        <div style="flex:1">
+          <label>Retroalimentación (editable)</label>
+          <input type="text" id="fb_${escAttr(p.id)}" value="${escAttr(p.retroalimentacion||'')}">
+        </div>
+        <div>
+          <button class="btn" onclick="guardarAjuste('${escAttr(intentoId)}','${escAttr(p.id)}','${escAttr(p.id)}')">Guardar</button>
+        </div>
+      </div>
+      <div class="msg" id="msgAdj_${escAttr(p.id)}"></div>
+    </div>`;
+  });
+  html += '</div>';
+  cont.innerHTML = html;
+}
+
+async function guardarAjuste(intentoId, preguntaId, pid){
+  const puntaje = Number(document.getElementById('pts_' + pid).value);
+  const retroalimentacion = document.getElementById('fb_' + pid).value;
+  const m = document.getElementById('msgAdj_' + pid);
+  setMsg(m, 'Guardando...', '');
+  const r = await api('ajustarNota', { intentoId, preguntaId, puntaje, retroalimentacion });
+  if (r.ok){
+    setMsg(m, 'Guardado.', 'ok');
+    const notaDisp = document.getElementById('notaFinalDisplay');
+    if (notaDisp && r.resultado.notaFinal != null) notaDisp.textContent = r.resultado.notaFinal.toFixed(1);
+  } else { setMsg(m, 'No se pudo guardar.', 'bad'); }
 }
 
 function dirUsuarios(){
@@ -1067,6 +1175,10 @@ function panelEstudiante(){
 
 function irTab(t){
   if (examTimerId){ clearInterval(examTimerId); examTimerId = null; }
+  // Si sale de evaluaciones con un examen en curso, lo preserva para retomarlo
+  if (t !== 'evaluaciones' && examenActual){
+    // Ya entregado se limpió en entregarExamenAhora; si hay examen activo y sale, lo dejamos en memoria
+  }
   tabActual = t;
   document.querySelectorAll('#navbar button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
   const c = document.getElementById('tabcont');
@@ -1079,8 +1191,10 @@ function irTab(t){
 
 let examTimerId = null;
 let examenActual = null;
+let respuestasEnCurso = {};
 
 async function renderEvaluaciones(c){
+  if (examenActual){ renderFormExamen(); return; }
   c.innerHTML = '<div class="vacio">Cargando...</div>';
   const r = await api('inicioEstudiante', {});
   const dim = diminutivo(primerNombre(usuarioActual.nombre));
@@ -1121,7 +1235,9 @@ async function iniciarExamenModo(modo){
     else c.innerHTML = '<div class="vacio">No se pudo iniciar el examen.</div>';
     return;
   }
+  const esNuevo = !examenActual || examenActual.intentoId !== r.intentoId;
   examenActual = { intentoId: r.intentoId, limite: r.limite, examen: r.examen };
+  if (esNuevo) respuestasEnCurso = {};
   renderFormExamen();
 }
 
@@ -1130,19 +1246,20 @@ function renderFormExamen(){
   let n = 0;
   let html = `<div class="examTimer" id="examTimer">Cargando tiempo...</div>
     <h1 style="margin-top:14px">Examen libre</h1>
-    <p class="sub">Responde todas las preguntas que puedas. Puedes desplazarte y volver a revisar antes de entregar.</p>`;
+    <p class="sub">Puedes desplazarte y volver a revisar tus respuestas antes de entregar.</p>`;
   examenActual.examen.secciones.forEach(s => {
     html += `<div class="examSec">${esc(s.asignatura)}</div>`;
     s.preguntas.forEach(p => {
       n++;
-      html += `<div class="examQ" data-qid="${escAttr(p.id)}">
-        <div class="enun">${n}. ${esc(p.enunciado)}</div>`;
+      html += `<div class="examQ" data-qid="${escAttr(p.id)}"><div class="enun">${n}. ${esc(p.enunciado)}</div>`;
       if (p.tipo === 'seleccion'){
         p.opciones.forEach((op, i) => {
-          html += `<label class="examOpt"><input type="radio" name="q_${escAttr(p.id)}" value="${i}"><span>${esc(op)}</span></label>`;
+          const chk = respuestasEnCurso[p.id] === i ? 'checked' : '';
+          html += `<label class="examOpt"><input type="radio" name="q_${escAttr(p.id)}" value="${i}" ${chk} onchange="guardarRespuesta('${escAttr(p.id)}',Number(this.value))"><span>${esc(op)}</span></label>`;
         });
       } else {
-        html += `<textarea class="examTA" id="ta_${escAttr(p.id)}" placeholder="Escribe tu respuesta aquí..."></textarea>`;
+        const guardado = escAttr(respuestasEnCurso[p.id] || '');
+        html += `<textarea class="examTA" id="ta_${escAttr(p.id)}" placeholder="Escribe tu respuesta aquí..." oninput="guardarRespuesta('${escAttr(p.id)}',this.value)">${guardado}</textarea>`;
       }
       html += `</div>`;
     });
@@ -1150,6 +1267,10 @@ function renderFormExamen(){
   html += `<button class="btn" style="width:100%;margin:10px 0 30px" onclick="confirmarEntrega()">Entregar examen</button>`;
   c.innerHTML = html;
   iniciarCronometro();
+}
+
+function guardarRespuesta(pregId, valor){
+  respuestasEnCurso[pregId] = valor;
 }
 
 function iniciarCronometro(){
@@ -1172,15 +1293,12 @@ function iniciarCronometro(){
 }
 
 function recolectarRespuestas(){
-  const respuestas = {};
+  // Sincronizar textareas al vuelo por si acaso (los radios ya se guardan via onchange)
   document.querySelectorAll('.examQ').forEach(q => {
-    const id = q.dataset.qid;
-    const marcado = q.querySelector('input[type=radio]:checked');
-    if (marcado){ respuestas[id] = Number(marcado.value); return; }
     const ta = q.querySelector('textarea');
-    if (ta) respuestas[id] = ta.value;
+    if (ta) respuestasEnCurso[q.dataset.qid] = ta.value;
   });
-  return respuestas;
+  return Object.assign({}, respuestasEnCurso);
 }
 
 function confirmarEntrega(){
@@ -1198,6 +1316,8 @@ async function entregarExamenAhora(automatico){
   c.innerHTML = '<div class="vacio">Corrigiendo tu examen...</div>';
   let r; try{ r = await api('entregarExamen', { intentoId: examenActual.intentoId, respuestas }); }catch(e){ c.innerHTML = '<div class="vacio">No se pudo enviar. Revisa tu conexión e inténtalo de nuevo.</div>'; return; }
   if (!r.ok){ c.innerHTML = '<div class="vacio">No se pudo corregir el examen.</div>'; return; }
+  examenActual = null;
+  respuestasEnCurso = {};
   renderResultadoExamen(r.resultado, automatico);
 }
 

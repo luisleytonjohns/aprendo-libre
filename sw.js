@@ -1,5 +1,5 @@
 /* AprendoLibre — service worker (v2): navegación con red primero, assets con caché */
-const CACHE = 'aprendolibre-v9';
+const CACHE = 'aprendolibre-v11';
 const ASSETS = ['manifest.json', 'favicon.svg', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
