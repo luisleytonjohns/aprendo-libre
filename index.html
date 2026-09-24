@@ -864,13 +864,13 @@ async function cargarResumenApoderado(){
   // Último examen
   if (r.ultimoExamen){
     const ue = r.ultimoExamen;
-    const notaColor = ue.notaProvisional >= 4 ? 'var(--verde)' : '#b3261e';
+    const notaColor = ue.nota >= 4 ? 'var(--verde)' : '#b3261e';
     html += `<div class="card2">
       <strong>Último examen</strong>
       <div style="display:flex;align-items:center;gap:16px;margin-top:10px">
-        <div style="font-size:36px;font-weight:800;color:${notaColor}">${ue.notaProvisional != null ? ue.notaProvisional.toFixed(1) : '—'}</div>
-        <div><span style="color:var(--gris);font-weight:600">${fmtFecha(ue.entregadoEn.slice(0,10))}</span><br>
-        ${ue.pendientesAbiertas ? `<span style="color:var(--sol);font-weight:700">${ue.pendientesAbiertas} pregunta(s) abiertas pendientes de revisión</span>` : '<span style="color:var(--verde);font-weight:700">Corrección completada</span>'}</div>
+        <div style="font-size:36px;font-weight:800;color:${notaColor}">${ue.nota != null ? ue.nota.toFixed(1) : '—'}</div>
+        <div><span style="color:var(--gris);font-weight:600">${fmtFecha(ue.entregadoEn ? ue.entregadoEn.slice(0,10) : '')}</span><br>
+        <span style="color:var(--verde);font-weight:700">${ue.nota >= 4 ? '✓ Aprobado' : '✗ Reprobado'}</span></div>
       </div>`;
     if (r.historialNotas && r.historialNotas.length > 1){
       html += `<div style="margin-top:12px"><strong style="font-size:13px;color:var(--gris)">Historial de notas</strong><table style="margin-top:6px"><tr><th>Fecha</th><th>Nota</th><th>Modo</th></tr>`;
@@ -1326,33 +1326,27 @@ function renderResultadoExamen(res, automatico){
   const porMat = {};
   res.detalle.forEach(d => {
     if (!porMat[d.asignatura]) porMat[d.asignatura] = { ok: 0, total: 0 };
-    if (d.tipo === 'seleccion'){ porMat[d.asignatura].total++; if (d.correcto) porMat[d.asignatura].ok++; }
+    porMat[d.asignatura].total++;
+    if (d.correcto) porMat[d.asignatura].ok++;
   });
+  const nota = res.nota;
+  const notaColor = nota >= 4 ? 'var(--verde)' : '#b3261e';
   let html = '';
-  if (automatico) html += `<div class="card2" style="background:#fff8e6;border-color:#f0dca0"><strong>Se acabó el tiempo</strong><p style="margin:4px 0 0;color:var(--gris);font-weight:600">Enviamos tu examen automáticamente con lo que alcanzaste a responder.</p></div>`;
+  if (automatico) html += `<div class="card2" style="background:#fff8e6;border-color:#f0dca0"><strong>Se acabó el tiempo</strong><p style="margin:4px 0 0;color:var(--gris);font-weight:600">Enviamos tu examen con lo que alcanzaste a responder.</p></div>`;
   html += `<h1>Tu resultado</h1>
     <div class="card2" style="text-align:center">
-      <div class="resNota">${res.notaProvisional.toFixed(1)}</div>
-      <p style="color:var(--gris);font-weight:600;margin:4px 0 0">Nota provisional (selección múltiple)</p>
-      <p style="color:var(--gris);font-weight:600">${res.puntajeSelObtenido} de ${res.puntajeSelPosible} puntos</p>
+      <div class="resNota" style="color:${notaColor}">${nota.toFixed(1)}</div>
+      <p style="color:${notaColor};font-weight:800;margin:4px 0 0">${nota >= 4 ? '✓ Aprobado' : '✗ Reprobado'}</p>
+      <p style="color:var(--gris);font-weight:600;margin:4px 0 0">${res.puntajeObtenido} de ${res.puntajeTotal} puntos</p>
     </div>`;
-  if (res.pendientesAbiertas > 0)
-    html += `<div class="card2"><strong>${res.pendientesAbiertas} pregunta(s) abiertas pendientes</strong><p style="color:var(--gris);font-weight:600;margin:6px 0 0">Tu director las revisará y tu nota final se actualizará.</p></div>`;
   html += `<div class="card2"><strong>Resultado por materia</strong>`;
   Object.keys(porMat).forEach(a => html += `<div class="matline"><div class="top"><span>${esc(a)}</span><span class="pct">${porMat[a].ok}/${porMat[a].total} correctas</span></div><div class="prog"><i style="width:${porMat[a].total?Math.round(porMat[a].ok*100/porMat[a].total):0}%"></i></div></div>`);
   html += `</div>`;
   html += `<div class="examSec">Revisión pregunta por pregunta</div>`;
   res.detalle.forEach((d, i) => {
-    if (d.tipo === 'seleccion'){
-      html += `<div class="resDetQ ${d.correcto?'ok':'bad'}"><strong>${i+1}. ${esc(d.enunciado)}</strong><br>
-        <span class="${d.correcto?'resOk':'resBad'}">${d.correcto?'✓ Correcta':'✗ Incorrecta'}</span>
-        ${!d.correcto ? ' · Respuesta correcta: ' + esc(d.opciones[d.correctaIndex]) : ''}</div>`;
-    } else {
-      html += `<div class="resDetQ"><strong>${i+1}. ${esc(d.enunciado)}</strong><br>
-        <span style="color:var(--gris)">Tu respuesta: ${esc(d.tuRespuesta || '(sin responder)')}</span><br>
-        <span style="color:var(--gris);font-style:italic">Respuesta de referencia: ${esc(d.respuestaModelo)}</span><br>
-        <span style="color:var(--sol);font-weight:700">Pendiente de revisión</span></div>`;
-    }
+    html += `<div class="resDetQ ${d.correcto?'ok':'bad'}"><strong>${i+1}. ${esc(d.enunciado)}</strong><br>
+      <span class="${d.correcto?'resOk':'resBad'}">${d.correcto?'✓ Correcta':'✗ Incorrecta'}</span>
+      ${!d.correcto ? ' &middot; Respuesta correcta: <em>' + esc(d.opciones[d.correctaIndex]) + '</em>' : ''}</div>`;
   });
   html += `<div class="motorpie"><img src="motorcito.png" alt=""><span>¡Bien hecho por intentarlo!</span></div>
     <button class="btn sec" style="width:100%;margin:14px 0 30px" onclick="irTab('evaluaciones')">Volver a Evaluaciones</button>`;
