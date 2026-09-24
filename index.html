@@ -1318,6 +1318,7 @@ async function entregarExamenAhora(automatico){
   if (!r.ok){ c.innerHTML = '<div class="vacio">No se pudo corregir el examen.</div>'; return; }
   examenActual = null;
   respuestasEnCurso = {};
+  liberarSWPendiente();
   renderResultadoExamen(r.resultado, automatico);
 }
 
@@ -1456,7 +1457,46 @@ function motivoTexto(m){
 }
 
 /* ===================== PWA: instalar y offline ===================== */
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(()=>{}));
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').then(reg => {
+      reg.addEventListener('updatefound', () => {
+        const nuevoSW = reg.installing;
+        nuevoSW.addEventListener('statechange', () => {
+          if (nuevoSW.state === 'installed' && navigator.serviceWorker.controller) {
+            // Hay una actualización lista. Si no hay examen en curso, la aplicamos de inmediato.
+            // Si hay examen, esperamos a que termine.
+            autorizarActualizacionSW(nuevoSW);
+          }
+        });
+      });
+    }).catch(() => {});
+
+    // Cuando el SW toma control (después del skipWaiting), recarga la página.
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!examenActual) window.location.reload();
+    });
+  });
+}
+
+let swPendiente = null;
+
+function autorizarActualizacionSW(sw) {
+  if (examenActual) {
+    // Guarda el SW para autorizarlo cuando el examen termine.
+    swPendiente = sw;
+  } else {
+    sw.postMessage({ type: 'SKIP_WAITING' });
+  }
+}
+
+/** Llamada automáticamente al terminar o entregar el examen, para aplicar actualizaciones pendientes. */
+function liberarSWPendiente() {
+  if (swPendiente) {
+    swPendiente.postMessage({ type: 'SKIP_WAITING' });
+    swPendiente = null;
+  }
+}
 let promptInstalar = null;
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); promptInstalar = e; const b=document.getElementById('btnInstalar'); if(b) b.style.display='inline-block'; });
 window.addEventListener('appinstalled', () => { promptInstalar=null; const b=document.getElementById('btnInstalar'); if(b) b.style.display='none'; });
