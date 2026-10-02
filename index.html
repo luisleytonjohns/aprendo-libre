@@ -208,6 +208,17 @@
   .acctoast{bottom:164px}
   body.stud .credito.app{display:none}
 
+  /* Overlay de carga */
+  #cargando{
+    display:none;position:fixed;inset:0;z-index:999;
+    background:rgba(22,104,201,.92);
+    flex-direction:column;align-items:center;justify-content:center;gap:18px;
+  }
+  #cargando.visible{display:flex}
+  #cargando img{width:110px;height:auto;animation:motorcito-bounce .7s ease-in-out infinite alternate;filter:drop-shadow(0 8px 18px rgba(0,0,0,.35))}
+  @keyframes motorcito-bounce{from{transform:translateY(0)}to{transform:translateY(-14px)}}
+  #cargando p{color:#fff;font-weight:800;font-size:18px;margin:0;letter-spacing:.01em;text-align:center}
+
   /* Impresión */
   #impresion{display:none}
   #impresion .doc{color:#000;font-family:Nunito,system-ui,sans-serif;padding:0 6px}
@@ -273,6 +284,12 @@
 
 <div id="impresion" aria-hidden="true"></div>
 
+<!-- Overlay de carga con Motorcito -->
+<div id="cargando" role="status" aria-live="polite">
+  <img src="motorcito.png" alt="Cargando">
+  <p>Por favor espera…</p>
+</div>
+
 <!-- Accesibilidad -->
 <div class="acc">
   <button id="btnLeer" onclick="alternarLectura()" aria-label="Escuchar la pantalla" title="Escuchar"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 9v6h4l5 5V4L8 9H4z"/><path d="M16.5 8.5a4 4 0 010 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
@@ -309,10 +326,19 @@ window.onload = async function(){
 
 function mostrarAviso(txt, tipo){ const a=document.getElementById('avisoLogin'); a.textContent=txt; a.className='aviso '+tipo; }
 
+let _apiPendientes = 0;
+function _mostrarCargando(){ _apiPendientes++; document.getElementById('cargando').classList.add('visible'); }
+function _ocultarCargando(){ _apiPendientes = Math.max(0, _apiPendientes - 1); if (_apiPendientes === 0) document.getElementById('cargando').classList.remove('visible'); }
+
 async function api(action, payload){
-  const body = Object.assign({ action:action, token:sesionToken }, payload||{});
-  const r = await fetch(API_URL, { method:'POST', body: JSON.stringify(body) });
-  return r.json();
+  _mostrarCargando();
+  try {
+    const body = Object.assign({ action:action, token:sesionToken }, payload||{});
+    const r = await fetch(API_URL, { method:'POST', body: JSON.stringify(body) });
+    return await r.json();
+  } finally {
+    _ocultarCargando();
+  }
 }
 
 async function ingresar(){
@@ -1318,7 +1344,6 @@ async function entregarExamenAhora(automatico){
   if (!r.ok){ c.innerHTML = '<div class="vacio">No se pudo corregir el examen.</div>'; return; }
   examenActual = null;
   respuestasEnCurso = {};
-  liberarSWPendiente();
   renderResultadoExamen(r.resultado, automatico);
 }
 
@@ -1457,46 +1482,7 @@ function motivoTexto(m){
 }
 
 /* ===================== PWA: instalar y offline ===================== */
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').then(reg => {
-      reg.addEventListener('updatefound', () => {
-        const nuevoSW = reg.installing;
-        nuevoSW.addEventListener('statechange', () => {
-          if (nuevoSW.state === 'installed' && navigator.serviceWorker.controller) {
-            // Hay una actualización lista. Si no hay examen en curso, la aplicamos de inmediato.
-            // Si hay examen, esperamos a que termine.
-            autorizarActualizacionSW(nuevoSW);
-          }
-        });
-      });
-    }).catch(() => {});
-
-    // Cuando el SW toma control (después del skipWaiting), recarga la página.
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (!examenActual) window.location.reload();
-    });
-  });
-}
-
-let swPendiente = null;
-
-function autorizarActualizacionSW(sw) {
-  if (examenActual) {
-    // Guarda el SW para autorizarlo cuando el examen termine.
-    swPendiente = sw;
-  } else {
-    sw.postMessage({ type: 'SKIP_WAITING' });
-  }
-}
-
-/** Llamada automáticamente al terminar o entregar el examen, para aplicar actualizaciones pendientes. */
-function liberarSWPendiente() {
-  if (swPendiente) {
-    swPendiente.postMessage({ type: 'SKIP_WAITING' });
-    swPendiente = null;
-  }
-}
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(()=>{}));
 let promptInstalar = null;
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); promptInstalar = e; const b=document.getElementById('btnInstalar'); if(b) b.style.display='inline-block'; });
 window.addEventListener('appinstalled', () => { promptInstalar=null; const b=document.getElementById('btnInstalar'); if(b) b.style.display='none'; });
